@@ -1,10 +1,10 @@
 {
-  "name": "@hemanthraj0c/fullstack-cli",
+  "name": "full-fscli",
   "version": "1.0.0",
   "description": "CLI tool to scaffold full-stack applications with interactive prompts",
   "main": "src/index.js",
   "bin": {
-    "fullstack": "./src/index.js"
+    "full-fscli": "./src/index.js"
   },
   "type": "module",
   "scripts": {

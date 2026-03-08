@@ -10,13 +10,13 @@ const program = new Command();
 // Display banner
 console.log(
   chalk.cyan(
-    figlet.textSync('FullStack CLI', { horizontalLayout: 'default' })
+    figlet.textSync('FSCLI', { font: 'ANSI Shadow' })
   )
 );
-console.log(chalk.gray('  Scaffold full-stack applications with ease\n'));
+console.log(chalk.gray('  Full-Stack CLI - Scaffold applications with ease\n'));
 
 program
-  .name('fullstack')
+  .name('full-fscli')
   .description('CLI to scaffold full-stack applications')
   .version('1.0.0');
 

@@ -10,20 +10,25 @@ import { showSuccessMessage } from '../utils/messages.js';
 
 export async function createProject(projectName) {
   try {
-    // Step 1: Gather all information
-    const answers = await inquirer.prompt([
-      {
+    // Build prompts - skip project name if provided via CLI
+    const prompts = [];
+    
+    if (!projectName) {
+      prompts.push({
         type: 'input',
         name: 'projectName',
         message: 'Project name:',
-        default: projectName || 'my-fullstack-app',
+        default: 'my-fullstack-app',
         validate: (input) => {
           if (!/^[a-zA-Z0-9_-]+$/.test(input)) {
             return 'Project name can only contain letters, numbers, dashes, and underscores (no spaces)';
           }
           return true;
         }
-      },
+      });
+    }
+    
+    prompts.push(
       {
         type: 'list',
         name: 'frontend',
@@ -57,7 +62,15 @@ export async function createProject(projectName) {
           { name: 'None', value: 'none' }
         ]
       }
-    ]);
+    );
+
+    // Step 1: Gather all information
+    const answers = await inquirer.prompt(prompts);
+    
+    // Use CLI argument if provided, otherwise use prompted value
+    if (projectName) {
+      answers.projectName = projectName;
+    }
 
     // Validate backend/database combination
     if (answers.backend === 'fastapi' && answers.database === 'mysql') {
