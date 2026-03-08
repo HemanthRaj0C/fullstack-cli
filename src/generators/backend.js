@@ -29,6 +29,7 @@ export async function generateBackend(answers, projectPath) {
     const templateUrl = TEMPLATES[backend];
     const branch = DATABASE_BRANCHES[database];
     const backendPath = path.join(projectPath, 'backend');
+    const isPython = backend === 'fastapi';
 
     // Clone the template
     spinner.text = `Cloning ${backend} template (${branch} branch)...`;
@@ -51,7 +52,6 @@ export async function generateBackend(answers, projectPath) {
     
     if (await fs.pathExists(envExample)) {
       await fs.copy(envExample, envFile);
-      spinner.text = 'Created .env file from template...';
     }
 
     // If using Supabase, add a comment to .env
@@ -61,14 +61,24 @@ export async function generateBackend(answers, projectPath) {
       await fs.writeFile(envFile, envContent);
     }
 
-    spinner.succeed(`Backend (${backend}) ready!`);
+    // Install dependencies
+    spinner.text = 'Installing backend dependencies...';
+    
+    if (isPython) {
+      // For Python, just show message (user needs venv)
+      spinner.succeed(`Backend (${backend}) ready!`);
+      console.log(chalk.yellow('  ⚠️  Run: cd backend && pip install -r requirements.txt\n'));
+    } else {
+      // For Node.js backends, auto-install
+      await execa('npm', ['install'], { cwd: backendPath });
+      spinner.succeed(`Backend (${backend}) ready! Dependencies installed.`);
+    }
     
     console.log(chalk.gray(`  Template: ${templateUrl}`));
-    console.log(chalk.gray(`  Branch: ${branch}`));
-    console.log(chalk.gray(`  Path: backend/\n`));
+    console.log(chalk.gray(`  Branch: ${branch}\n`));
 
   } catch (error) {
     spinner.fail('Backend setup failed');
-    throw new Error(`Failed to clone backend template: ${error.message}`);
+    throw new Error(`Failed to setup backend: ${error.message}`);
   }
 }

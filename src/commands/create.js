@@ -3,6 +3,7 @@ import chalk from 'chalk';
 import ora from 'ora';
 import path from 'path';
 import fs from 'fs-extra';
+import { execa } from 'execa';
 import { generateFrontend } from '../generators/frontend.js';
 import { generateBackend } from '../generators/backend.js';
 import { showSuccessMessage } from '../utils/messages.js';
@@ -95,10 +96,16 @@ export async function createProject(projectName) {
       await generateBackend(answers, projectPath);
     }
 
-    // Step 4: Create root files
+    // Step 4: Clean up and prepare project
+    await cleanupProject(projectPath);
+
+    // Step 5: Create root files
     await createRootFiles(answers, projectPath);
 
-    // Step 5: Show success message
+    // Step 6: Initialize fresh git repository
+    await initializeGit(projectPath);
+
+    // Step 7: Show success message
     showSuccessMessage(answers);
 
   } catch (error) {
@@ -192,4 +199,40 @@ The frontend includes a visual indicator in the top-right corner showing backend
 `;
 
   await fs.writeFile(path.join(projectPath, 'README.md'), readme);
+}
+
+async function cleanupProject(projectPath) {
+  const spinner = ora('Cleaning up...').start();
+  
+  try {
+    // Remove .git from frontend (created by create-next-app, create-vite, etc.)
+    const frontendGit = path.join(projectPath, 'frontend', '.git');
+    if (await fs.pathExists(frontendGit)) {
+      await fs.remove(frontendGit);
+    }
+    
+    // Remove .git from backend (already done in backend.js, but just in case)
+    const backendGit = path.join(projectPath, 'backend', '.git');
+    if (await fs.pathExists(backendGit)) {
+      await fs.remove(backendGit);
+    }
+    
+    spinner.succeed('Project cleaned up!');
+  } catch (error) {
+    spinner.warn('Cleanup warning: ' + error.message);
+  }
+}
+
+async function initializeGit(projectPath) {
+  const spinner = ora('Initializing git repository...').start();
+  
+  try {
+    await execa('git', ['init'], { cwd: projectPath });
+    await execa('git', ['add', '.'], { cwd: projectPath });
+    await execa('git', ['commit', '-m', 'Initial commit from FullStack CLI'], { cwd: projectPath });
+    
+    spinner.succeed('Git repository initialized!');
+  } catch (error) {
+    spinner.warn('Git init skipped: ' + error.message);
+  }
 }

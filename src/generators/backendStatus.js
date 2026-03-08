@@ -89,32 +89,42 @@ export default function BackendStatus() {
   }, [])
   
   const statusConfig = {
-    checking: { emoji: '🔄', text: 'Checking', bg: '#eab308' },
-    connected: { emoji: '✅', text: 'Connected', bg: '#22c55e' },
-    disconnected: { emoji: '❌', text: 'Disconnected', bg: '#ef4444' }
+    checking: { dot: '#fbbf24', text: 'Checking...' },
+    connected: { dot: '#22c55e', text: 'Connected' },
+    disconnected: { dot: '#ef4444', text: 'Disconnected' }
   }
   
-  const { emoji, text, bg } = statusConfig[status]
+  const { dot, text } = statusConfig[status]
   
   return (
     <div style={{
       position: 'fixed',
       top: '1rem',
       right: '1rem',
-      backgroundColor: bg,
-      color: 'white',
-      padding: '0.5rem 1rem',
-      borderRadius: '0.5rem',
-      boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
+      backgroundColor: 'rgba(0, 0, 0, 0.8)',
+      backdropFilter: 'blur(8px)',
+      border: '1px solid rgba(255, 255, 255, 0.1)',
+      color: 'rgba(255, 255, 255, 0.9)',
+      padding: '0.5rem 0.875rem',
+      borderRadius: '9999px',
       display: 'flex',
       alignItems: 'center',
       gap: '0.5rem',
       zIndex: 50,
-      fontFamily: 'system-ui, sans-serif',
-      fontSize: '0.875rem'
+      fontFamily: 'system-ui, -apple-system, sans-serif',
+      fontSize: '0.8125rem',
+      fontWeight: 500,
+      letterSpacing: '-0.01em',
+      transition: 'all 0.2s ease'
     }}>
-      <span>{emoji}</span>
-      <span style={{ fontWeight: 500 }}>Backend: {text}</span>
+      <span style={{
+        width: '8px',
+        height: '8px',
+        borderRadius: '50%',
+        backgroundColor: dot,
+        boxShadow: \`0 0 8px \${dot}\`
+      }} />
+      <span>Backend: {text}</span>
     </div>
   )
 }
@@ -143,32 +153,42 @@ export default function BackendStatus() {
   }, [])
   
   const statusConfig = {
-    checking: { emoji: '🔄', text: 'Checking', bg: '#eab308' },
-    connected: { emoji: '✅', text: 'Connected', bg: '#22c55e' },
-    disconnected: { emoji: '❌', text: 'Disconnected', bg: '#ef4444' }
+    checking: { dot: '#fbbf24', text: 'Checking...' },
+    connected: { dot: '#22c55e', text: 'Connected' },
+    disconnected: { dot: '#ef4444', text: 'Disconnected' }
   }
   
-  const { emoji, text, bg } = statusConfig[status]
+  const { dot, text } = statusConfig[status]
   
   return (
     <div style={{
       position: 'fixed',
       top: '1rem',
       right: '1rem',
-      backgroundColor: bg,
-      color: 'white',
-      padding: '0.5rem 1rem',
-      borderRadius: '0.5rem',
-      boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
+      backgroundColor: 'rgba(0, 0, 0, 0.8)',
+      backdropFilter: 'blur(8px)',
+      border: '1px solid rgba(255, 255, 255, 0.1)',
+      color: 'rgba(255, 255, 255, 0.9)',
+      padding: '0.5rem 0.875rem',
+      borderRadius: '9999px',
       display: 'flex',
       alignItems: 'center',
       gap: '0.5rem',
       zIndex: 50,
-      fontFamily: 'system-ui, sans-serif',
-      fontSize: '0.875rem'
+      fontFamily: 'system-ui, -apple-system, sans-serif',
+      fontSize: '0.8125rem',
+      fontWeight: 500,
+      letterSpacing: '-0.01em',
+      transition: 'all 0.2s ease'
     }}>
-      <span>{emoji}</span>
-      <span style={{ fontWeight: 500 }}>Backend: {text}</span>
+      <span style={{
+        width: '8px',
+        height: '8px',
+        borderRadius: '50%',
+        backgroundColor: dot,
+        boxShadow: \`0 0 8px \${dot}\`
+      }} />
+      <span>Backend: {text}</span>
     </div>
   )
 }
@@ -256,32 +276,40 @@ export default function BackendStatus() {
   }, [])
   
   const statusConfig = {
-    checking: { emoji: '🔄', text: 'Checking', bg: '#eab308' },
-    connected: { emoji: '✅', text: 'Connected', bg: '#22c55e' },
-    disconnected: { emoji: '❌', text: 'Disconnected', bg: '#ef4444' }
+    checking: { dot: '#fbbf24', text: 'Checking...' },
+    connected: { dot: '#22c55e', text: 'Connected' },
+    disconnected: { dot: '#ef4444', text: 'Disconnected' }
   }
   
-  const { emoji, text, bg } = statusConfig[status]
+  const { dot, text } = statusConfig[status]
   
   return (
     <div style={{
       position: 'fixed',
       top: '1rem',
       right: '1rem',
-      backgroundColor: bg,
-      color: 'white',
-      padding: '0.5rem 1rem',
-      borderRadius: '0.5rem',
-      boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
+      backgroundColor: 'rgba(0, 0, 0, 0.8)',
+      backdropFilter: 'blur(8px)',
+      border: '1px solid rgba(255, 255, 255, 0.1)',
+      color: 'rgba(255, 255, 255, 0.9)',
+      padding: '0.5rem 0.875rem',
+      borderRadius: '9999px',
       display: 'flex',
       alignItems: 'center',
       gap: '0.5rem',
       zIndex: 50,
-      fontFamily: 'system-ui, sans-serif',
-      fontSize: '0.875rem'
+      fontFamily: 'system-ui, -apple-system, sans-serif',
+      fontSize: '0.8125rem',
+      fontWeight: 500
     }}>
-      <span>{emoji}</span>
-      <span style={{ fontWeight: 500 }}>Backend: {text}</span>
+      <span style={{
+        width: '8px',
+        height: '8px',
+        borderRadius: '50%',
+        backgroundColor: dot,
+        boxShadow: \`0 0 8px \${dot}\`
+      }} />
+      <span>Backend: {text}</span>
     </div>
   )
 }
@@ -309,32 +337,40 @@ export default function BackendStatus() {
   }, [])
   
   const statusConfig = {
-    checking: { emoji: '🔄', text: 'Checking', bg: '#eab308' },
-    connected: { emoji: '✅', text: 'Connected', bg: '#22c55e' },
-    disconnected: { emoji: '❌', text: 'Disconnected', bg: '#ef4444' }
+    checking: { dot: '#fbbf24', text: 'Checking...' },
+    connected: { dot: '#22c55e', text: 'Connected' },
+    disconnected: { dot: '#ef4444', text: 'Disconnected' }
   }
   
-  const { emoji, text, bg } = statusConfig[status]
+  const { dot, text } = statusConfig[status]
   
   return (
     <div style={{
       position: 'fixed',
       top: '1rem',
       right: '1rem',
-      backgroundColor: bg,
-      color: 'white',
-      padding: '0.5rem 1rem',
-      borderRadius: '0.5rem',
-      boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
+      backgroundColor: 'rgba(0, 0, 0, 0.8)',
+      backdropFilter: 'blur(8px)',
+      border: '1px solid rgba(255, 255, 255, 0.1)',
+      color: 'rgba(255, 255, 255, 0.9)',
+      padding: '0.5rem 0.875rem',
+      borderRadius: '9999px',
       display: 'flex',
       alignItems: 'center',
       gap: '0.5rem',
       zIndex: 50,
-      fontFamily: 'system-ui, sans-serif',
-      fontSize: '0.875rem'
+      fontFamily: 'system-ui, -apple-system, sans-serif',
+      fontSize: '0.8125rem',
+      fontWeight: 500
     }}>
-      <span>{emoji}</span>
-      <span style={{ fontWeight: 500 }}>Backend: {text}</span>
+      <span style={{
+        width: '8px',
+        height: '8px',
+        borderRadius: '50%',
+        backgroundColor: dot,
+        boxShadow: \`0 0 8px \${dot}\`
+      }} />
+      <span>Backend: {text}</span>
     </div>
   )
 }
@@ -409,9 +445,9 @@ function getSvelteBackendStatusCode() {
   let interval;
   
   const statusConfig = {
-    checking: { emoji: '🔄', text: 'Checking', bg: '#eab308' },
-    connected: { emoji: '✅', text: 'Connected', bg: '#22c55e' },
-    disconnected: { emoji: '❌', text: 'Disconnected', bg: '#ef4444' }
+    checking: { text: 'Checking', color: '#eab308' },
+    connected: { text: 'Connected', color: '#22c55e' },
+    disconnected: { text: 'Disconnected', color: '#ef4444' }
   };
   
   async function checkBackend() {
@@ -435,11 +471,8 @@ function getSvelteBackendStatusCode() {
   $: config = statusConfig[status];
 </script>
 
-<div 
-  class="backend-status"
-  style="background-color: {config.bg};"
->
-  <span>{config.emoji}</span>
+<div class="backend-status">
+  <span class="dot" style="background-color: {config.color}; box-shadow: 0 0 8px {config.color};"></span>
   <span class="text">Backend: {config.text}</span>
 </div>
 
@@ -448,16 +481,26 @@ function getSvelteBackendStatusCode() {
     position: fixed;
     top: 1rem;
     right: 1rem;
-    color: white;
-    padding: 0.5rem 1rem;
-    border-radius: 0.5rem;
-    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+    background: rgba(0, 0, 0, 0.8);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    color: rgba(255, 255, 255, 0.9);
+    padding: 0.5rem 0.875rem;
+    border-radius: 9999px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.3);
     display: flex;
     align-items: center;
     gap: 0.5rem;
     z-index: 50;
-    font-family: system-ui, sans-serif;
-    font-size: 0.875rem;
+    font-family: system-ui, -apple-system, sans-serif;
+    font-size: 0.75rem;
+  }
+  
+  .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
   }
   
   .text {
