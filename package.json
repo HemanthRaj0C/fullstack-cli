@@ -1,6 +1,6 @@
 {
   "name": "create-fs-cli",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "description": "CLI tool to scaffold full-stack applications with interactive prompts",
   "main": "src/index.js",
   "bin": {
