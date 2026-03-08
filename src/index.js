@@ -10,10 +10,10 @@ const program = new Command();
 // Display banner
 console.log(
   chalk.cyan(
-    figlet.textSync('FSCLI', { font: 'ANSI Shadow' })
+    figlet.textSync('create-fs-cli', { font: 'Standard' })
   )
 );
-console.log(chalk.gray('  Full-Stack CLI - Scaffold applications with ease\n'));
+console.log(chalk.dim('\n  ▷ Rapidly scaffold full-stack applications\n'));
 
 program
   .name('create-fs-cli')

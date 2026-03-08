@@ -4,7 +4,7 @@ import chalk from 'chalk';
 import ora from 'ora';
 
 export async function injectBackendStatus(frontendPath, framework, isTypeScript, isIntegrated) {
-  const spinner = ora('Adding BackendStatus component...').start();
+  const spinner = ora({ text: 'Adding BackendStatus component...', color: 'cyan' }).start();
 
   try {
     switch (framework) {
@@ -18,10 +18,9 @@ export async function injectBackendStatus(frontendPath, framework, isTypeScript,
         await injectSvelte(frontendPath, isTypeScript);
         break;
     }
-    spinner.succeed('BackendStatus component added!');
+    spinner.succeed(chalk.dim('BackendStatus component added'));
   } catch (error) {
-    spinner.warn(`Could not auto-inject BackendStatus: ${error.message}`);
-    console.log(chalk.yellow('  You can manually add the BackendStatus component later.\n'));
+    spinner.warn(chalk.yellow(`Could not auto-inject BackendStatus: ${error.message}`));
   }
 }
 
@@ -71,30 +70,45 @@ import { useEffect, useState } from 'react'
 type Status = 'checking' | 'connected' | 'disconnected'
 
 export default function BackendStatus() {
-  const [status, setStatus] = useState<Status>('checking')
+  const [backendStatus, setBackendStatus] = useState<Status>('checking')
+  const [dbStatus, setDbStatus] = useState<Status | null>(null)
   
   useEffect(() => {
-    const checkBackend = async () => {
+    const checkHealth = async () => {
       try {
         const res = await fetch('${backendUrl}')
-        setStatus(res.ok ? 'connected' : 'disconnected')
+        if (res.ok) {
+          const data = await res.json()
+          setBackendStatus('connected')
+          if (typeof data.database === 'boolean') {
+            setDbStatus(data.database ? 'connected' : 'disconnected')
+          }
+        } else {
+          setBackendStatus('disconnected')
+          setDbStatus(prev => prev !== null ? 'disconnected' : null)
+        }
       } catch {
-        setStatus('disconnected')
+        setBackendStatus('disconnected')
+        setDbStatus(prev => prev !== null ? 'disconnected' : null)
       }
     }
     
-    checkBackend()
-    const interval = setInterval(checkBackend, 5000)
+    checkHealth()
+    const interval = setInterval(checkHealth, 5000)
     return () => clearInterval(interval)
   }, [])
   
-  const statusConfig = {
-    checking: { dot: '#fbbf24', text: 'Checking...' },
-    connected: { dot: '#22c55e', text: 'Connected' },
-    disconnected: { dot: '#ef4444', text: 'Disconnected' }
+  const colors: Record<Status, string> = {
+    checking: '#fbbf24',
+    connected: '#22c55e',
+    disconnected: '#ef4444'
   }
   
-  const { dot, text } = statusConfig[status]
+  const labels: Record<Status, string> = {
+    checking: 'Checking...',
+    connected: 'Connected',
+    disconnected: 'Disconnected'
+  }
   
   return (
     <div style={{
@@ -106,10 +120,10 @@ export default function BackendStatus() {
       border: '1px solid rgba(255, 255, 255, 0.1)',
       color: 'rgba(255, 255, 255, 0.9)',
       padding: '0.5rem 0.875rem',
-      borderRadius: '9999px',
+      borderRadius: '0.75rem',
       display: 'flex',
-      alignItems: 'center',
-      gap: '0.5rem',
+      flexDirection: 'column',
+      gap: '0.375rem',
       zIndex: 50,
       fontFamily: 'system-ui, -apple-system, sans-serif',
       fontSize: '0.8125rem',
@@ -117,14 +131,28 @@ export default function BackendStatus() {
       letterSpacing: '-0.01em',
       transition: 'all 0.2s ease'
     }}>
-      <span style={{
-        width: '8px',
-        height: '8px',
-        borderRadius: '50%',
-        backgroundColor: dot,
-        boxShadow: \`0 0 8px \${dot}\`
-      }} />
-      <span>Backend: {text}</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        <span style={{
+          width: '8px',
+          height: '8px',
+          borderRadius: '50%',
+          backgroundColor: colors[backendStatus],
+          boxShadow: \`0 0 8px \${colors[backendStatus]}\`
+        }} />
+        <span>Backend: {labels[backendStatus]}</span>
+      </div>
+      {dbStatus && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <span style={{
+            width: '8px',
+            height: '8px',
+            borderRadius: '50%',
+            backgroundColor: colors[dbStatus],
+            boxShadow: \`0 0 8px \${colors[dbStatus]}\`
+          }} />
+          <span>Database: {labels[dbStatus]}</span>
+        </div>
+      )}
     </div>
   )
 }
@@ -135,30 +163,45 @@ export default function BackendStatus() {
 import { useEffect, useState } from 'react'
 
 export default function BackendStatus() {
-  const [status, setStatus] = useState('checking')
+  const [backendStatus, setBackendStatus] = useState('checking')
+  const [dbStatus, setDbStatus] = useState(null)
   
   useEffect(() => {
-    const checkBackend = async () => {
+    const checkHealth = async () => {
       try {
         const res = await fetch('${backendUrl}')
-        setStatus(res.ok ? 'connected' : 'disconnected')
+        if (res.ok) {
+          const data = await res.json()
+          setBackendStatus('connected')
+          if (typeof data.database === 'boolean') {
+            setDbStatus(data.database ? 'connected' : 'disconnected')
+          }
+        } else {
+          setBackendStatus('disconnected')
+          setDbStatus(prev => prev !== null ? 'disconnected' : null)
+        }
       } catch {
-        setStatus('disconnected')
+        setBackendStatus('disconnected')
+        setDbStatus(prev => prev !== null ? 'disconnected' : null)
       }
     }
     
-    checkBackend()
-    const interval = setInterval(checkBackend, 5000)
+    checkHealth()
+    const interval = setInterval(checkHealth, 5000)
     return () => clearInterval(interval)
   }, [])
   
-  const statusConfig = {
-    checking: { dot: '#fbbf24', text: 'Checking...' },
-    connected: { dot: '#22c55e', text: 'Connected' },
-    disconnected: { dot: '#ef4444', text: 'Disconnected' }
+  const colors = {
+    checking: '#fbbf24',
+    connected: '#22c55e',
+    disconnected: '#ef4444'
   }
   
-  const { dot, text } = statusConfig[status]
+  const labels = {
+    checking: 'Checking...',
+    connected: 'Connected',
+    disconnected: 'Disconnected'
+  }
   
   return (
     <div style={{
@@ -170,10 +213,10 @@ export default function BackendStatus() {
       border: '1px solid rgba(255, 255, 255, 0.1)',
       color: 'rgba(255, 255, 255, 0.9)',
       padding: '0.5rem 0.875rem',
-      borderRadius: '9999px',
+      borderRadius: '0.75rem',
       display: 'flex',
-      alignItems: 'center',
-      gap: '0.5rem',
+      flexDirection: 'column',
+      gap: '0.375rem',
       zIndex: 50,
       fontFamily: 'system-ui, -apple-system, sans-serif',
       fontSize: '0.8125rem',
@@ -181,14 +224,28 @@ export default function BackendStatus() {
       letterSpacing: '-0.01em',
       transition: 'all 0.2s ease'
     }}>
-      <span style={{
-        width: '8px',
-        height: '8px',
-        borderRadius: '50%',
-        backgroundColor: dot,
-        boxShadow: \`0 0 8px \${dot}\`
-      }} />
-      <span>Backend: {text}</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        <span style={{
+          width: '8px',
+          height: '8px',
+          borderRadius: '50%',
+          backgroundColor: colors[backendStatus],
+          boxShadow: \`0 0 8px \${colors[backendStatus]}\`
+        }} />
+        <span>Backend: {labels[backendStatus]}</span>
+      </div>
+      {dbStatus && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <span style={{
+            width: '8px',
+            height: '8px',
+            borderRadius: '50%',
+            backgroundColor: colors[dbStatus],
+            boxShadow: \`0 0 8px \${colors[dbStatus]}\`
+          }} />
+          <span>Database: {labels[dbStatus]}</span>
+        </div>
+      )}
     </div>
   )
 }
@@ -258,30 +315,45 @@ function getReactBackendStatusCode(isTypeScript) {
 type Status = 'checking' | 'connected' | 'disconnected'
 
 export default function BackendStatus() {
-  const [status, setStatus] = useState<Status>('checking')
+  const [backendStatus, setBackendStatus] = useState<Status>('checking')
+  const [dbStatus, setDbStatus] = useState<Status | null>(null)
   
   useEffect(() => {
-    const checkBackend = async () => {
+    const checkHealth = async () => {
       try {
         const res = await fetch('http://localhost:5000/api/health')
-        setStatus(res.ok ? 'connected' : 'disconnected')
+        if (res.ok) {
+          const data = await res.json()
+          setBackendStatus('connected')
+          if (typeof data.database === 'boolean') {
+            setDbStatus(data.database ? 'connected' : 'disconnected')
+          }
+        } else {
+          setBackendStatus('disconnected')
+          setDbStatus(prev => prev !== null ? 'disconnected' : null)
+        }
       } catch {
-        setStatus('disconnected')
+        setBackendStatus('disconnected')
+        setDbStatus(prev => prev !== null ? 'disconnected' : null)
       }
     }
     
-    checkBackend()
-    const interval = setInterval(checkBackend, 5000)
+    checkHealth()
+    const interval = setInterval(checkHealth, 5000)
     return () => clearInterval(interval)
   }, [])
   
-  const statusConfig = {
-    checking: { dot: '#fbbf24', text: 'Checking...' },
-    connected: { dot: '#22c55e', text: 'Connected' },
-    disconnected: { dot: '#ef4444', text: 'Disconnected' }
+  const colors: Record<Status, string> = {
+    checking: '#fbbf24',
+    connected: '#22c55e',
+    disconnected: '#ef4444'
   }
   
-  const { dot, text } = statusConfig[status]
+  const labels: Record<Status, string> = {
+    checking: 'Checking...',
+    connected: 'Connected',
+    disconnected: 'Disconnected'
+  }
   
   return (
     <div style={{
@@ -293,23 +365,37 @@ export default function BackendStatus() {
       border: '1px solid rgba(255, 255, 255, 0.1)',
       color: 'rgba(255, 255, 255, 0.9)',
       padding: '0.5rem 0.875rem',
-      borderRadius: '9999px',
+      borderRadius: '0.75rem',
       display: 'flex',
-      alignItems: 'center',
-      gap: '0.5rem',
+      flexDirection: 'column',
+      gap: '0.375rem',
       zIndex: 50,
       fontFamily: 'system-ui, -apple-system, sans-serif',
       fontSize: '0.8125rem',
       fontWeight: 500
     }}>
-      <span style={{
-        width: '8px',
-        height: '8px',
-        borderRadius: '50%',
-        backgroundColor: dot,
-        boxShadow: \`0 0 8px \${dot}\`
-      }} />
-      <span>Backend: {text}</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        <span style={{
+          width: '8px',
+          height: '8px',
+          borderRadius: '50%',
+          backgroundColor: colors[backendStatus],
+          boxShadow: \`0 0 8px \${colors[backendStatus]}\`
+        }} />
+        <span>Backend: {labels[backendStatus]}</span>
+      </div>
+      {dbStatus && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <span style={{
+            width: '8px',
+            height: '8px',
+            borderRadius: '50%',
+            backgroundColor: colors[dbStatus],
+            boxShadow: \`0 0 8px \${colors[dbStatus]}\`
+          }} />
+          <span>Database: {labels[dbStatus]}</span>
+        </div>
+      )}
     </div>
   )
 }
@@ -319,30 +405,45 @@ export default function BackendStatus() {
   return `import { useEffect, useState } from 'react'
 
 export default function BackendStatus() {
-  const [status, setStatus] = useState('checking')
+  const [backendStatus, setBackendStatus] = useState('checking')
+  const [dbStatus, setDbStatus] = useState(null)
   
   useEffect(() => {
-    const checkBackend = async () => {
+    const checkHealth = async () => {
       try {
         const res = await fetch('http://localhost:5000/api/health')
-        setStatus(res.ok ? 'connected' : 'disconnected')
+        if (res.ok) {
+          const data = await res.json()
+          setBackendStatus('connected')
+          if (typeof data.database === 'boolean') {
+            setDbStatus(data.database ? 'connected' : 'disconnected')
+          }
+        } else {
+          setBackendStatus('disconnected')
+          setDbStatus(prev => prev !== null ? 'disconnected' : null)
+        }
       } catch {
-        setStatus('disconnected')
+        setBackendStatus('disconnected')
+        setDbStatus(prev => prev !== null ? 'disconnected' : null)
       }
     }
     
-    checkBackend()
-    const interval = setInterval(checkBackend, 5000)
+    checkHealth()
+    const interval = setInterval(checkHealth, 5000)
     return () => clearInterval(interval)
   }, [])
   
-  const statusConfig = {
-    checking: { dot: '#fbbf24', text: 'Checking...' },
-    connected: { dot: '#22c55e', text: 'Connected' },
-    disconnected: { dot: '#ef4444', text: 'Disconnected' }
+  const colors = {
+    checking: '#fbbf24',
+    connected: '#22c55e',
+    disconnected: '#ef4444'
   }
   
-  const { dot, text } = statusConfig[status]
+  const labels = {
+    checking: 'Checking...',
+    connected: 'Connected',
+    disconnected: 'Disconnected'
+  }
   
   return (
     <div style={{
@@ -354,23 +455,37 @@ export default function BackendStatus() {
       border: '1px solid rgba(255, 255, 255, 0.1)',
       color: 'rgba(255, 255, 255, 0.9)',
       padding: '0.5rem 0.875rem',
-      borderRadius: '9999px',
+      borderRadius: '0.75rem',
       display: 'flex',
-      alignItems: 'center',
-      gap: '0.5rem',
+      flexDirection: 'column',
+      gap: '0.375rem',
       zIndex: 50,
       fontFamily: 'system-ui, -apple-system, sans-serif',
       fontSize: '0.8125rem',
       fontWeight: 500
     }}>
-      <span style={{
-        width: '8px',
-        height: '8px',
-        borderRadius: '50%',
-        backgroundColor: dot,
-        boxShadow: \`0 0 8px \${dot}\`
-      }} />
-      <span>Backend: {text}</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        <span style={{
+          width: '8px',
+          height: '8px',
+          borderRadius: '50%',
+          backgroundColor: colors[backendStatus],
+          boxShadow: \`0 0 8px \${colors[backendStatus]}\`
+        }} />
+        <span>Backend: {labels[backendStatus]}</span>
+      </div>
+      {dbStatus && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <span style={{
+            width: '8px',
+            height: '8px',
+            borderRadius: '50%',
+            backgroundColor: colors[dbStatus],
+            boxShadow: \`0 0 8px \${colors[dbStatus]}\`
+          }} />
+          <span>Database: {labels[dbStatus]}</span>
+        </div>
+      )}
     </div>
   )
 }
@@ -441,43 +556,66 @@ function getSvelteBackendStatusCode() {
   return `<script>
   import { onMount, onDestroy } from 'svelte';
   
-  let status = 'checking';
+  let backendStatus = 'checking';
+  let dbStatus = null;
   let interval;
   
-  const statusConfig = {
-    checking: { text: 'Checking', color: '#eab308' },
-    connected: { text: 'Connected', color: '#22c55e' },
-    disconnected: { text: 'Disconnected', color: '#ef4444' }
+  const colors = {
+    checking: '#fbbf24',
+    connected: '#22c55e',
+    disconnected: '#ef4444'
   };
   
-  async function checkBackend() {
+  const labels = {
+    checking: 'Checking...',
+    connected: 'Connected',
+    disconnected: 'Disconnected'
+  };
+  
+  async function checkHealth() {
     try {
       const res = await fetch('http://localhost:5000/api/health');
-      status = res.ok ? 'connected' : 'disconnected';
+      if (res.ok) {
+        const data = await res.json();
+        backendStatus = 'connected';
+        if (typeof data.database === 'boolean') {
+          dbStatus = data.database ? 'connected' : 'disconnected';
+        }
+      } else {
+        backendStatus = 'disconnected';
+        if (dbStatus !== null) dbStatus = 'disconnected';
+      }
     } catch {
-      status = 'disconnected';
+      backendStatus = 'disconnected';
+      if (dbStatus !== null) dbStatus = 'disconnected';
     }
   }
   
   onMount(() => {
-    checkBackend();
-    interval = setInterval(checkBackend, 5000);
+    checkHealth();
+    interval = setInterval(checkHealth, 5000);
   });
   
   onDestroy(() => {
     if (interval) clearInterval(interval);
   });
-  
-  $: config = statusConfig[status];
 </script>
 
-<div class="backend-status">
-  <span class="dot" style="background-color: {config.color}; box-shadow: 0 0 8px {config.color};"></span>
-  <span class="text">Backend: {config.text}</span>
+<div class="status-container">
+  <div class="status-row">
+    <span class="dot" style="background-color: {colors[backendStatus]}; box-shadow: 0 0 8px {colors[backendStatus]};"></span>
+    <span class="text">Backend: {labels[backendStatus]}</span>
+  </div>
+  {#if dbStatus}
+    <div class="status-row">
+      <span class="dot" style="background-color: {colors[dbStatus]}; box-shadow: 0 0 8px {colors[dbStatus]};"></span>
+      <span class="text">Database: {labels[dbStatus]}</span>
+    </div>
+  {/if}
 </div>
 
 <style>
-  .backend-status {
+  .status-container {
     position: fixed;
     top: 1rem;
     right: 1rem;
@@ -486,15 +624,21 @@ function getSvelteBackendStatusCode() {
     -webkit-backdrop-filter: blur(8px);
     color: rgba(255, 255, 255, 0.9);
     padding: 0.5rem 0.875rem;
-    border-radius: 9999px;
+    border-radius: 0.75rem;
     border: 1px solid rgba(255, 255, 255, 0.1);
     box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.3);
     display: flex;
-    align-items: center;
-    gap: 0.5rem;
+    flex-direction: column;
+    gap: 0.375rem;
     z-index: 50;
     font-family: system-ui, -apple-system, sans-serif;
     font-size: 0.75rem;
+  }
+  
+  .status-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
   }
   
   .dot {

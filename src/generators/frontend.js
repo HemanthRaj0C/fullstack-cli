@@ -8,7 +8,7 @@ import { injectBackendStatus } from './backendStatus.js';
 export async function generateFrontend(answers, projectPath) {
   const { frontend } = answers;
 
-  console.log(chalk.cyan('\n🎨 Setting up frontend...\n'));
+  console.log(`\n${chalk.cyan('◯')} ${chalk.bold('Frontend')} ${chalk.dim('· Setting up')} ${chalk.white(frontend)}`);
 
   switch (frontend) {
     case 'nextjs':
@@ -24,7 +24,7 @@ export async function generateFrontend(answers, projectPath) {
 }
 
 async function generateNextJS(answers, projectPath) {
-  console.log(chalk.yellow('📦 Running create-next-app (follow the prompts)...\n'));
+  console.log(chalk.gray('  › Running create-next-app (follow the prompts)...\n'));
   
   try {
     // Run Next.js CLI interactively
@@ -33,7 +33,7 @@ async function generateNextJS(answers, projectPath) {
       stdio: 'inherit'
     });
 
-    console.log(chalk.green('\n✅ Next.js project created!\n'));
+    console.log(`\n  ${chalk.green('✔')} ${chalk.dim('Next.js project created')}\n`);
 
     // Detect if TypeScript was chosen
     const frontendPath = path.join(projectPath, 'frontend');
@@ -49,7 +49,7 @@ async function generateNextJS(answers, projectPath) {
 }
 
 async function generateReactVite(answers, projectPath) {
-  console.log(chalk.yellow('📦 Running create-vite (follow the prompts)...\n'));
+  console.log(chalk.gray('  › Running create-vite (follow the prompts)...\n'));
   
   try {
     // Run Vite CLI interactively
@@ -58,7 +58,7 @@ async function generateReactVite(answers, projectPath) {
       stdio: 'inherit'
     });
 
-    console.log(chalk.green('\n✅ React + Vite project created!\n'));
+    console.log(`\n  ${chalk.green('✔')} ${chalk.dim('React + Vite project created')}\n`);
 
     // Detect if TypeScript was chosen
     const frontendPath = path.join(projectPath, 'frontend');
@@ -74,7 +74,7 @@ async function generateReactVite(answers, projectPath) {
 }
 
 async function generateSvelte(answers, projectPath) {
-  console.log(chalk.yellow('📦 Running create-svelte (follow the prompts)...\n'));
+  console.log(chalk.gray('  › Running create-svelte (follow the prompts)...\n'));
   
   try {
     // Run SvelteKit CLI interactively
@@ -83,7 +83,7 @@ async function generateSvelte(answers, projectPath) {
       stdio: 'inherit'
     });
 
-    console.log(chalk.green('\n✅ SvelteKit project created!\n'));
+    console.log(`\n  ${chalk.green('✔')} ${chalk.dim('SvelteKit project created')}\n`);
 
     // Detect if TypeScript was chosen
     const frontendPath = path.join(projectPath, 'frontend');

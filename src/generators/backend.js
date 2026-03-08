@@ -23,15 +23,17 @@ const DATABASE_BRANCHES = {
 export async function generateBackend(answers, projectPath) {
   const { backend, database } = answers;
   
-  const spinner = ora('Setting up backend...').start();
+  console.log(`\n${chalk.cyan('◯')} ${chalk.bold('Backend')} ${chalk.dim('· Setting up')} ${chalk.white(backend)}`);
+  
+  const spinner = ora({ text: `Initializing...`, color: 'cyan' }).start();
 
   try {
     const templateUrl = TEMPLATES[backend];
     const branch = DATABASE_BRANCHES[database];
     const backendPath = path.join(projectPath, 'backend');
     const isPython = backend === 'fastapi';
-
-    // Clone the template
+    
+    // Update spinner text
     spinner.text = `Cloning ${backend} template (${branch} branch)...`;
     
     await execa('git', [
@@ -66,19 +68,16 @@ export async function generateBackend(answers, projectPath) {
     
     if (isPython) {
       // For Python, just show message (user needs venv)
-      spinner.succeed(`Backend (${backend}) ready!`);
-      console.log(chalk.yellow('  ⚠️  Run: cd backend && pip install -r requirements.txt\n'));
+      spinner.succeed(chalk.dim('Backend ready'));
+      console.log(`  ${chalk.yellow('⚠')} ${chalk.dim('Run: cd backend && pip install -r requirements.txt')}\n`);
     } else {
       // For Node.js backends, auto-install
       await execa('npm', ['install'], { cwd: backendPath });
-      spinner.succeed(`Backend (${backend}) ready! Dependencies installed.`);
+      spinner.succeed(chalk.dim('Backend ready (dependencies installed)'));
     }
-    
-    console.log(chalk.gray(`  Template: ${templateUrl}`));
-    console.log(chalk.gray(`  Branch: ${branch}\n`));
 
   } catch (error) {
-    spinner.fail('Backend setup failed');
+    spinner.fail(chalk.red('Backend setup failed'));
     throw new Error(`Failed to setup backend: ${error.message}`);
   }
 }

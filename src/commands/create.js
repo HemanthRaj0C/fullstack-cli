@@ -18,6 +18,7 @@ export async function createProject(projectName) {
         type: 'input',
         name: 'projectName',
         message: 'Project name:',
+        prefix: chalk.cyan('?'),
         default: 'my-fullstack-app',
         validate: (input) => {
           if (!/^[a-zA-Z0-9_-]+$/.test(input)) {
@@ -33,16 +34,18 @@ export async function createProject(projectName) {
         type: 'list',
         name: 'frontend',
         message: 'Choose frontend framework:',
+        prefix: chalk.cyan('?'),
         choices: [
           { name: 'Next.js', value: 'nextjs' },
           { name: 'React + Vite', value: 'react-vite' },
-          { name: 'Svelte', value: 'svelte' }
+          { name: 'SvelteKit', value: 'svelte' }
         ]
       },
       {
         type: 'list',
         name: 'backend',
         message: 'Choose backend framework:',
+        prefix: chalk.cyan('?'),
         choices: [
           { name: 'Next.js API Routes (integrated)', value: 'nextjs-api' },
           { name: 'Express', value: 'express' },
@@ -54,6 +57,7 @@ export async function createProject(projectName) {
         type: 'list',
         name: 'database',
         message: 'Choose database:',
+        prefix: chalk.cyan('?'),
         choices: [
           { name: 'PostgreSQL', value: 'postgres' },
           { name: 'MongoDB', value: 'mongodb' },
@@ -66,6 +70,7 @@ export async function createProject(projectName) {
 
     // Step 1: Gather all information
     const answers = await inquirer.prompt(prompts);
+    console.log(); // Add spacing after prompts
     
     // Use CLI argument if provided, otherwise use prompted value
     if (projectName) {
@@ -74,7 +79,7 @@ export async function createProject(projectName) {
 
     // Validate backend/database combination
     if (answers.backend === 'fastapi' && answers.database === 'mysql') {
-      console.log(chalk.yellow('\n⚠️  FastAPI template does not support MySQL. Defaulting to PostgreSQL.\n'));
+      console.log(`\n  ${chalk.yellow('⚠')} ${chalk.bold('Warning')} ${chalk.dim('· FastAPI template does not support MySQL. Defaulting to PostgreSQL.')}\n`);
       answers.database = 'postgres';
     }
 
@@ -86,20 +91,21 @@ export async function createProject(projectName) {
         {
           type: 'confirm',
           name: 'overwrite',
+          prefix: chalk.yellow('⚠'),
           message: `Directory ${answers.projectName} already exists. Overwrite?`,
           default: false
         }
       ]);
       
       if (!overwrite) {
-        console.log(chalk.red('Aborted.'));
+        console.log(chalk.red('\n  Aborted.\n'));
         process.exit(1);
       }
       await fs.remove(projectPath);
     }
 
     await fs.ensureDir(projectPath);
-    console.log(chalk.green(`\n📁 Created project directory: ${answers.projectName}\n`));
+    console.log(`\n  ${chalk.green('✔')} ${chalk.bold('Project Directory')} ${chalk.dim('·')} ${answers.projectName}`);
 
     // Step 2: Generate frontend
     await generateFrontend(answers, projectPath);
@@ -119,10 +125,11 @@ export async function createProject(projectName) {
     await initializeGit(projectPath);
 
     // Step 7: Show success message
+    console.log(); // Empty line before success message
     showSuccessMessage(answers);
 
   } catch (error) {
-    console.error(chalk.red('\n❌ Error:'), error.message);
+    console.error(`\n  ${chalk.red('✖')} ${chalk.bold('Error')} ${chalk.dim('·')} ${error.message}\n`);
     process.exit(1);
   }
 }
@@ -215,7 +222,7 @@ The frontend includes a visual indicator in the top-right corner showing backend
 }
 
 async function cleanupProject(projectPath) {
-  const spinner = ora('Cleaning up...').start();
+  const spinner = ora({ text: 'Cleaning up...', color: 'cyan' }).start();
   
   try {
     // Remove .git from frontend (created by create-next-app, create-vite, etc.)
@@ -230,22 +237,22 @@ async function cleanupProject(projectPath) {
       await fs.remove(backendGit);
     }
     
-    spinner.succeed('Project cleaned up!');
+    spinner.succeed(chalk.dim('Project cleaned up'));
   } catch (error) {
-    spinner.warn('Cleanup warning: ' + error.message);
+    spinner.warn(chalk.yellow('Cleanup warning: ' + error.message));
   }
 }
 
 async function initializeGit(projectPath) {
-  const spinner = ora('Initializing git repository...').start();
+  const spinner = ora({ text: 'Initializing git repository...', color: 'cyan' }).start();
   
   try {
     await execa('git', ['init'], { cwd: projectPath });
     await execa('git', ['add', '.'], { cwd: projectPath });
     await execa('git', ['commit', '-m', 'Initial commit from FullStack CLI'], { cwd: projectPath });
     
-    spinner.succeed('Git repository initialized!');
+    spinner.succeed(chalk.dim('Git repository initialized'));
   } catch (error) {
-    spinner.warn('Git init skipped: ' + error.message);
+    spinner.warn(chalk.yellow('Git init skipped: ' + error.message));
   }
 }
