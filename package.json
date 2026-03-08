@@ -1,0 +1,51 @@
+{
+  "name": "@hemanthraj0c/fullstack-cli",
+  "version": "1.0.0",
+  "description": "CLI tool to scaffold full-stack applications with interactive prompts",
+  "main": "src/index.js",
+  "bin": {
+    "fullstack": "./src/index.js"
+  },
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "link": "npm link"
+  },
+  "keywords": [
+    "cli",
+    "fullstack",
+    "scaffold",
+    "generator",
+    "nextjs",
+    "react",
+    "vite",
+    "svelte",
+    "express",
+    "fastify",
+    "fastapi",
+    "boilerplate"
+  ],
+  "author": "HemanthRaj0C",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/HemanthRaj0C/fullstack-cli.git"
+  },
+  "bugs": {
+    "url": "https://github.com/HemanthRaj0C/fullstack-cli/issues"
+  },
+  "homepage": "https://github.com/HemanthRaj0C/fullstack-cli#readme",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "boxen": "^7.1.1",
+    "chalk": "^5.3.0",
+    "commander": "^11.1.0",
+    "execa": "^8.0.1",
+    "figlet": "^1.7.0",
+    "fs-extra": "^11.2.0",
+    "inquirer": "^9.2.12",
+    "ora": "^8.0.1"
+  }
+}
