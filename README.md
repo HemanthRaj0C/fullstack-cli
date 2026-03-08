@@ -1,67 +1,77 @@
-# FullStack CLI
+# create-fs-cli
 
-A CLI tool to scaffold full-stack applications with interactive terminal UI.
+A lightning-fast, interactive CLI tool to rapidly scaffold full-stack applications.
 
-## Installation
+## 🚀 Usage
 
-```bash
-npm install -g fullstack-cli
-```
-
-## Usage
+The easiest way to start is by using `npx`. You don't need to install anything globally!
 
 ```bash
-# Run the CLI
-fullstack
-
-# Or with a project name
-fullstack create my-app
+npx create-fs-cli my-app
+# or
+npx create-fs-cli
 ```
 
-## Features
+*(You can also optionally install it globally via `npm install -g create-fs-cli`)*
 
-- 🎨 **Interactive prompts** - Choose your stack step by step
-- ⚡ **Multiple frontends** - Next.js, React + Vite, SvelteKit
-- 🔧 **Multiple backends** - Express, Fastify, FastAPI, or Next.js API Routes
-- 🗄️ **Database ready** - PostgreSQL, MongoDB, MySQL, Supabase
-- 📊 **Backend status indicator** - Visual connection status in your frontend
+## ✨ Features
 
-## Stack Options
+- **Clean Interactive TUI** - A sleek, minimal terminal interface to choose your stack step-by-step.
+- **Frontend Frameworks** - Next.js, React + Vite, or SvelteKit.
+- **Backend Frameworks** - Express, Fastify, FastAPI, or Integrated Next.js API Routes.
+- **Database Ready** - PostgreSQL, MongoDB, MySQL, or No Database.
+- **Instant Boilerplate** - Generates the code mapping your frontend directly to your backend.
+- **Live Status Component** - Automatically injects a `BackendStatus` UI component into your frontend that actively pings the backend and database to verify connection health in real-time.
+
+## 🛠️ Stack Options
 
 ### Frontend
-- **Next.js** - React framework with SSR/SSG
-- **React + Vite** - Fast React development
-- **SvelteKit** - Svelte framework
+- **Next.js** - React framework (TypeScript/JavaScript)
+- **React + Vite** - Fast React development (TypeScript/JavaScript)
+- **SvelteKit** - Modern Svelte framework (TypeScript/JavaScript)
 
 ### Backend
-- **Next.js API Routes** - Integrated with Next.js frontend
 - **Express** - Minimalist Node.js framework
-- **Fastify** - Fast Node.js framework
-- **FastAPI** - Modern Python framework
+- **Fastify** - High-performance Node.js framework
+- **FastAPI** - High-performance Python framework
+- **Next.js API Routes** - Integrated serverless backend
 
 ### Database
-- **PostgreSQL** - Relational database
-- **MongoDB** - Document database
-- **MySQL** - Relational database
-- **Supabase** - PostgreSQL with extras
-- **None** - No database setup
+- **PostgreSQL** - Relational DB
+- **MongoDB** - Document DB
+- **MySQL** - Relational DB
+- **None** - Build without a DB
 
-## Generated Structure
+## 📂 Generated Structure
 
-```
+```text
 my-project/
-├── frontend/          # Your chosen frontend framework
-│   └── components/
-│       └── BackendStatus  # Connection status indicator
-├── backend/           # Your chosen backend (if not Next.js API)
+├── frontend/             # Handled by your chosen frontend framework
+│   ├── src/components/
+│   │   └── BackendStatus # Visual connection indicator for Backend & DB
+│   └── package.json
+├── backend/              # Your chosen backend framework
 │   ├── config/
-│   │   └── db.js      # Database configuration
+│   │   └── ...           # Pre-configured DB connection
 │   ├── routes/
-│   └── .env           # Environment variables
+│   └── .env.example      # Safe, ready-to-use template for your credentials
 ├── .gitignore
 └── README.md
 ```
 
-## License
+## 🤝 Contributing
+
+**PRs are highly welcome!**
+
+Whether you want to **improve the terminal UI layout**, add support for **new frameworks/databases**, or **fix bugs**, your contributions are greatly appreciated. 
+
+To get started:
+1. Fork the repository.
+2. Create a new branch (`git checkout -b feature/ui-improvements`).
+3. Make your changes and test them locally.
+4. Push your branch (`git push origin feature/ui-improvements`).
+5. Open a Pull Request!
+
+## 📄 License
 
 MIT
