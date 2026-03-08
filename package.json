@@ -1,10 +1,10 @@
 {
-  "name": "full-fscli",
+  "name": "create-fs-cli",
   "version": "1.0.0",
   "description": "CLI tool to scaffold full-stack applications with interactive prompts",
   "main": "src/index.js",
   "bin": {
-    "full-fscli": "./src/index.js"
+    "create-fs-cli": "./src/index.js"
   },
   "type": "module",
   "scripts": {

@@ -16,7 +16,7 @@ console.log(
 console.log(chalk.gray('  Full-Stack CLI - Scaffold applications with ease\n'));
 
 program
-  .name('full-fscli')
+  .name('create-fs-cli')
   .description('CLI to scaffold full-stack applications')
   .version('1.0.0');
 
