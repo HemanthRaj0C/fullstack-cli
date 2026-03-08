@@ -17,61 +17,58 @@ export function showSuccessMessage(answers) {
   const hasBackend = backend !== 'nextjs-api';
   const isPython = backend === 'fastapi';
 
-  let message = chalk.green.bold('✅ Project created successfully!') + '\n\n';
+  const log = [];
+
+  // Title
+  log.push(`${chalk.bgGreen.black.bold(' SUCCESS ')} ${chalk.green(`Created ${chalk.bold(projectName)}`)}\n`);
+
+  // Tech Stack (Tree style)
+  log.push(chalk.cyan.bold('Tech Stack'));
+  log.push(`${chalk.gray('├─')} Frontend   ${chalk.white(frontendName)}`);
+  log.push(`${chalk.gray('├─')} Backend    ${chalk.white(backendName)}`);
+  log.push(`${chalk.gray('└─')} Database   ${chalk.white(dbName)}\n`);
+
+  // Next Steps
+  log.push(chalk.cyan.bold('Next Steps'));
   
-  message += chalk.white('📦 Stack:\n');
-  message += chalk.gray(`   Frontend: ${frontendName}\n`);
-  message += chalk.gray(`   Backend:  ${backendName}\n`);
-  message += chalk.gray(`   Database: ${dbName}\n\n`);
+  let stepNum = 1;
+  log.push(`${chalk.gray(`${stepNum++}.`)} cd ${projectName}`);
 
   if (hasBackend && database !== 'none') {
-    message += chalk.yellow('⚙️  Configure database:\n');
-    message += chalk.white(`   Edit ${chalk.cyan('backend/.env')} with your credentials\n\n`);
+    log.push(`${chalk.gray(`${stepNum++}.`)} Configure database inside ${chalk.white.bold('backend/.env')}`);
   }
 
-  message += chalk.yellow('📦 Install dependencies:\n');
-  message += chalk.white(`   cd ${projectName}\n`);
-  message += chalk.white(`   cd frontend && npm install\n`);
+  log.push(`${chalk.gray(`${stepNum++}.`)} Start development servers:\n`);
   
   if (hasBackend) {
-    if (isPython) {
-      message += chalk.white(`   cd ../backend && pip install -r requirements.txt\n\n`);
-    } else {
-      message += chalk.white(`   cd ../backend && npm install\n\n`);
-    }
+    log.push(chalk.gray('   # Terminal 1 (Backend)'));
+    log.push(`   ${chalk.cyan('cd')} backend`);
+    log.push(`   ${chalk.cyan(isPython ? 'uvicorn main:app --reload --port 5000' : 'npm run dev')}\n`);
+    
+    log.push(chalk.gray('   # Terminal 2 (Frontend)'));
+    log.push(`   ${chalk.cyan('cd')} frontend`);
+    log.push(`   ${chalk.cyan('npm run dev')}\n`);
   } else {
-    message += '\n';
+    log.push(`   ${chalk.cyan('cd')} frontend`);
+    log.push(`   ${chalk.cyan('npm run dev')}\n`);
   }
 
-  message += chalk.yellow('🚀 Start development:\n');
+  // Footer info
+  log.push(chalk.gray('─'.repeat(45)));
+  log.push(`${chalk.gray('Local:')}    ${chalk.white('http://localhost:3000')}`);
   
   if (hasBackend) {
-    message += chalk.gray('   # Terminal 1 - Backend:\n');
-    message += chalk.white(`   cd backend && ${isPython ? 'uvicorn main:app --reload --port 5000' : 'npm run dev'}\n\n`);
-    message += chalk.gray('   # Terminal 2 - Frontend:\n');
+    log.push(`${chalk.gray('API:')}      ${chalk.white('http://localhost:5000')}`);
   }
   
-  message += chalk.white(`   cd frontend && npm run dev\n\n`);
-
-  message += chalk.cyan('🌐 URLs:\n');
-  message += chalk.white('   Frontend: http://localhost:3000\n');
-  
-  if (hasBackend) {
-    message += chalk.white('   Backend:  http://localhost:5000\n');
-    message += chalk.white('   Health:   http://localhost:5000/api/health\n\n');
-  } else {
-    message += '\n';
-  }
-
-  message += chalk.magenta('👁️  Backend Status Indicator:\n');
-  message += chalk.gray('   Look for the status badge in the top-right corner!');
+  log.push(`${chalk.gray('Note:')}     Check the UI status badge for connection status.`);
 
   console.log(
-    boxen(message, {
-      padding: 1,
-      margin: 1,
+    boxen(log.join('\n'), {
+      padding: { top: 1, bottom: 1, left: 2, right: 3 },
+      margin: { top: 1, bottom: 1, left: 0, right: 0 },
       borderStyle: 'round',
-      borderColor: 'cyan'
+      borderColor: 'gray'
     })
   );
 }
