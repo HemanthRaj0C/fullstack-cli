@@ -71,7 +71,3 @@ To get started:
 3. Make your changes and test them locally.
 4. Push your branch (`git push origin feature/ui-improvements`).
 5. Open a Pull Request!
-
-## 📄 License
-
-MIT
