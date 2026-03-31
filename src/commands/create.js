@@ -15,7 +15,7 @@ import {
 } from '../utils/stack.js';
 import { runPreflightChecks } from '../utils/preflight.js';
 
-export async function createProject(projectName) {
+export async function createProject(projectName, options = {}) {
   let projectPath;
   let projectCreated = false;
   let projectExistedBefore = false;
@@ -65,12 +65,19 @@ export async function createProject(projectName) {
     );
 
     // Step 1: Gather all information
-    const answers = await inquirer.prompt(prompts);
-    console.log(); // Add spacing after prompts
+    const answers = options.answers ? { ...options.answers } : await inquirer.prompt(prompts);
+
+    if (!options.answers) {
+      console.log(); // Add spacing after prompts
+    }
     
     // Use CLI argument if provided, otherwise use prompted value
     if (projectName) {
       answers.projectName = projectName;
+    }
+
+    if (!answers.projectName) {
+      throw new Error('Project name is required.');
     }
 
     const { normalized, warnings } = normalizeStackSelection(answers);
@@ -89,19 +96,26 @@ export async function createProject(projectName) {
     if (await fs.pathExists(projectPath)) {
       projectExistedBefore = true;
 
-      const { overwrite } = await inquirer.prompt([
-        {
-          type: 'confirm',
-          name: 'overwrite',
-          prefix: chalk.yellow('⚠'),
-          message: `Directory ${answers.projectName} already exists. Overwrite?`,
-          default: false
-        }
-      ]);
+      let overwrite = false;
+      if (typeof options.overwrite === 'boolean') {
+        overwrite = options.overwrite;
+      } else {
+        const overwriteAnswer = await inquirer.prompt([
+          {
+            type: 'confirm',
+            name: 'overwrite',
+            prefix: chalk.yellow('⚠'),
+            message: `Directory ${answers.projectName} already exists. Overwrite?`,
+            default: false
+          }
+        ]);
+        overwrite = overwriteAnswer.overwrite;
+      }
       
       if (!overwrite) {
-        console.log(chalk.red('\n  Aborted.\n'));
-        process.exit(1);
+        const abortError = new Error('Aborted by user.');
+        abortError.code = 'ABORTED';
+        throw abortError;
       }
       await fs.remove(projectPath);
     }
@@ -137,6 +151,11 @@ export async function createProject(projectName) {
     }
 
     console.error(`\n  ${chalk.red('✖')} ${chalk.bold('Error')} ${chalk.dim('·')} ${error.message}\n`);
+
+    if (options.noExit) {
+      throw error;
+    }
+
     process.exit(1);
   }
 }

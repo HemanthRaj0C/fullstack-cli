@@ -7,12 +7,26 @@ A lightning-fast, interactive CLI tool to rapidly scaffold full-stack applicatio
 The easiest way to start is by using `npx`. You don't need to install anything globally!
 
 ```bash
+# Interactive fullscreen TUI mode (recommended)
+npx create-fs-cli create --tui
+
+# Classic interactive mode
 npx create-fs-cli my-app
 # or
 npx create-fs-cli
 ```
 
 *(You can also optionally install it globally via `npm install -g create-fs-cli`)*
+
+### TUI Mode (`--tui`)
+Launch a modern fullscreen terminal UI for an enhanced experience:
+- Arrow keys to navigate through options
+- Enter to select
+- Real-time progress visualization
+- Guided stack validation
+
+### Classic Mode
+Traditional step-by-step prompts in your terminal.
 
 ## ✨ Features
 

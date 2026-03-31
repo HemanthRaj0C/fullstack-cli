@@ -239,12 +239,18 @@ async function ensureFrontendDependencies(frontendPath) {
     return;
   }
 
-  const spinner = ora({ text: 'Installing frontend dependencies...', color: 'cyan' }).start();
+  if (isTuiMode()) {
+    console.log('  > Installing frontend dependencies...');
+  }
+
+  const spinner = isTuiMode()
+    ? null
+    : ora({ text: 'Installing frontend dependencies...', color: 'cyan' }).start();
 
   try {
-    await execa('npm', ['install'], {
+    const subprocess = execa('npm', ['install'], {
       cwd: frontendPath,
-      stdio: 'inherit',
+      all: true,
       timeout: SCAFFOLD_TIMEOUT_MS,
       env: {
         ...process.env,
@@ -252,12 +258,32 @@ async function ensureFrontendDependencies(frontendPath) {
         npm_config_yes: 'true'
       }
     });
-    spinner.succeed(chalk.dim('Frontend dependencies installed'));
+
+    if (subprocess.all) {
+      subprocess.all.on('data', (chunk) => {
+        process.stdout.write(chunk.toString());
+      });
+    }
+
+    await subprocess;
+
+    if (spinner) {
+      spinner.succeed(chalk.dim('Frontend dependencies installed'));
+    } else {
+      console.log('  > Frontend dependencies installed');
+    }
   } catch (error) {
-    spinner.fail(chalk.red('Frontend dependency installation failed'));
+    if (spinner) {
+      spinner.fail(chalk.red('Frontend dependency installation failed'));
+    }
+
     if (error.timedOut) {
       throw new Error('Frontend dependency installation timed out.');
     }
     throw new Error(`Failed to install frontend dependencies: ${error.message}`);
   }
+}
+
+function isTuiMode() {
+  return process.env.CREATE_FS_TUI === '1';
 }
