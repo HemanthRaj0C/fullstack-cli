@@ -8,6 +8,31 @@ import { generateFrontend } from '../generators/frontend.js';
 import { generateBackend } from '../generators/backend.js';
 import { showSuccessMessage } from '../utils/messages.js';
 
+const WINDOWS_RESERVED_NAMES = new Set([
+  'CON',
+  'PRN',
+  'AUX',
+  'NUL',
+  'COM1',
+  'COM2',
+  'COM3',
+  'COM4',
+  'COM5',
+  'COM6',
+  'COM7',
+  'COM8',
+  'COM9',
+  'LPT1',
+  'LPT2',
+  'LPT3',
+  'LPT4',
+  'LPT5',
+  'LPT6',
+  'LPT7',
+  'LPT8',
+  'LPT9'
+]);
+
 export async function createProject(projectName) {
   try {
     // Build prompts - skip project name if provided via CLI
@@ -21,10 +46,8 @@ export async function createProject(projectName) {
         prefix: chalk.cyan('?'),
         default: 'my-fullstack-app',
         validate: (input) => {
-          if (!/^[a-zA-Z0-9_-]+$/.test(input)) {
-            return 'Project name can only contain letters, numbers, dashes, and underscores (no spaces)';
-          }
-          return true;
+          const validationError = getProjectNameValidationError(input);
+          return validationError ?? true;
         }
       });
     }
@@ -77,6 +100,12 @@ export async function createProject(projectName) {
       answers.projectName = projectName;
     }
 
+    const validationError = getProjectNameValidationError(answers.projectName);
+    if (validationError) {
+      throw new Error(`Invalid project name: ${validationError}`);
+    }
+    answers.projectName = answers.projectName.trim();
+
     // Validate backend/database combination
     if (answers.backend === 'fastapi' && answers.database === 'mysql') {
       console.log(`\n  ${chalk.yellow('⚠')} ${chalk.bold('Warning')} ${chalk.dim('· FastAPI template does not support MySQL. Defaulting to PostgreSQL.')}\n`);
@@ -84,7 +113,7 @@ export async function createProject(projectName) {
     }
 
     // Create project directory
-    const projectPath = path.join(process.cwd(), answers.projectName);
+    const projectPath = resolveSafeProjectPath(process.cwd(), answers.projectName);
     
     if (await fs.pathExists(projectPath)) {
       const { overwrite } = await inquirer.prompt([
@@ -255,4 +284,53 @@ async function initializeGit(projectPath) {
   } catch (error) {
     spinner.warn(chalk.yellow('Git init skipped: ' + error.message));
   }
+}
+
+function getProjectNameValidationError(rawName) {
+  if (typeof rawName !== 'string') {
+    return 'Project name must be a string.';
+  }
+
+  const name = rawName.trim();
+  if (!name) {
+    return 'Project name is required.';
+  }
+
+  if (name === '.' || name === '..') {
+    return 'Project name cannot be . or ..';
+  }
+
+  if (name.includes('/') || name.includes('\\')) {
+    return 'Project name cannot contain path separators.';
+  }
+
+  if (name.includes('..')) {
+    return 'Project name cannot contain ..';
+  }
+
+  if (path.isAbsolute(name)) {
+    return 'Project name cannot be an absolute path.';
+  }
+
+  if (!/^[a-zA-Z0-9_-]+$/.test(name)) {
+    return 'Project name can only contain letters, numbers, dashes, and underscores (no spaces).';
+  }
+
+  if (WINDOWS_RESERVED_NAMES.has(name.toUpperCase())) {
+    return 'Project name uses a reserved system name.';
+  }
+
+  return null;
+}
+
+function resolveSafeProjectPath(cwd, projectName) {
+  const resolvedCwd = path.resolve(cwd);
+  const resolvedPath = path.resolve(resolvedCwd, projectName);
+  const relativePath = path.relative(resolvedCwd, resolvedPath);
+
+  if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
+    throw new Error('Project path must stay within the current working directory.');
+  }
+
+  return resolvedPath;
 }
