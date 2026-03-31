@@ -5,33 +5,80 @@ import path from 'path';
 import fs from 'fs-extra';
 import { injectBackendStatus } from './backendStatus.js';
 
+const SCAFFOLD_TIMEOUT_MS = 8 * 60 * 1000;
+const UNEXPECTED_DEV_SERVER_PATTERNS = [
+  /starting dev server/i,
+  /\bVITE\s+v\d/i,
+  /\bLocal:\s+http:\/\/localhost:\d+/i
+];
+const FRONTEND_SCAFFOLD_ATTEMPTS = {
+  nextjs: [
+    {
+      command: 'npx',
+      args: [
+        '--yes',
+        'create-next-app@latest',
+        'frontend',
+        '--yes',
+        '--use-npm',
+        '--js',
+        '--eslint',
+        '--app'
+      ]
+    }
+  ],
+  'react-vite': [
+    {
+      command: 'npx',
+      args: ['--yes', 'create-vite@latest', 'frontend', '--template', 'react', '--no-interactive']
+    },
+    {
+      command: 'npx',
+      args: ['--yes', 'create-vite@latest', 'frontend', '-t', 'react', '--no-interactive']
+    }
+  ],
+  svelte: [
+    {
+      command: 'npx',
+      args: ['--yes', 'sv@latest', 'create', 'frontend', '--template', 'minimal', '--types', 'js', '--no-install', '--no-interactive']
+    },
+    {
+      command: 'npx',
+      args: ['--yes', 'sv@latest', 'create', 'frontend', '--template', 'minimal', '--types', 'js', '--no-install']
+    }
+  ]
+};
+
 export async function generateFrontend(answers, projectPath) {
   const { frontend } = answers;
+  const backendHealthUrl = answers.backend === 'nextjs-api' ? '/api/health' : 'http://localhost:5000/api/health';
 
   console.log(`\n${chalk.cyan('◯')} ${chalk.bold('Frontend')} ${chalk.dim('· Setting up')} ${chalk.white(frontend)}`);
 
   switch (frontend) {
     case 'nextjs':
-      await generateNextJS(answers, projectPath);
+      await generateNextJS(answers, projectPath, backendHealthUrl);
       break;
     case 'react-vite':
-      await generateReactVite(answers, projectPath);
+      await generateReactVite(answers, projectPath, backendHealthUrl);
       break;
     case 'svelte':
-      await generateSvelte(answers, projectPath);
+      await generateSvelte(answers, projectPath, backendHealthUrl);
       break;
+    default:
+      throw new Error(`Unsupported frontend: ${frontend}`);
   }
 }
 
-async function generateNextJS(answers, projectPath) {
-  console.log(chalk.gray('  › Running create-next-app (follow the prompts)...\n'));
+async function generateNextJS(answers, projectPath, backendHealthUrl) {
+  console.log(chalk.gray('  › Running create-next-app in non-interactive mode...\n'));
   
   try {
-    // Run Next.js CLI interactively
-    await execa('npx', ['create-next-app@latest', 'frontend'], {
-      cwd: projectPath,
-      stdio: 'inherit'
-    });
+    await runFrameworkScaffold(
+      'Next.js',
+      FRONTEND_SCAFFOLD_ATTEMPTS.nextjs,
+      projectPath
+    );
 
     console.log(`\n  ${chalk.green('✔')} ${chalk.dim('Next.js project created')}\n`);
 
@@ -39,49 +86,50 @@ async function generateNextJS(answers, projectPath) {
     const frontendPath = path.join(projectPath, 'frontend');
     const packageJson = await fs.readJSON(path.join(frontendPath, 'package.json'));
     const isTypeScript = !!packageJson.devDependencies?.typescript;
+    await ensureFrontendDependencies(frontendPath);
 
     // Inject BackendStatus component
-    await injectBackendStatus(frontendPath, 'nextjs', isTypeScript, answers.backend === 'nextjs-api');
+    await injectBackendStatus(frontendPath, 'nextjs', isTypeScript, answers.backend === 'nextjs-api', backendHealthUrl);
 
   } catch (error) {
     throw new Error(`Next.js setup failed: ${error.message}`);
   }
 }
 
-async function generateReactVite(answers, projectPath) {
-  console.log(chalk.gray('  › Running create-vite (follow the prompts)...\n'));
+async function generateReactVite(answers, projectPath, backendHealthUrl) {
+  console.log(chalk.gray('  › Running create-vite in non-interactive mode...\n'));
   
   try {
-    // Run Vite CLI interactively
-    await execa('npm', ['create', 'vite@latest', 'frontend'], {
-      cwd: projectPath,
-      stdio: 'inherit'
-    });
+    await runFrameworkScaffold(
+      'Vite',
+      FRONTEND_SCAFFOLD_ATTEMPTS['react-vite'],
+      projectPath
+    );
 
     console.log(`\n  ${chalk.green('✔')} ${chalk.dim('React + Vite project created')}\n`);
 
     // Detect if TypeScript was chosen
     const frontendPath = path.join(projectPath, 'frontend');
-    const files = await fs.readdir(frontendPath);
-    const isTypeScript = files.some(f => f.endsWith('.ts') || f.endsWith('.tsx'));
+    const isTypeScript = await detectViteTypeScript(frontendPath);
+    await ensureFrontendDependencies(frontendPath);
 
     // Inject BackendStatus component
-    await injectBackendStatus(frontendPath, 'react-vite', isTypeScript, false);
+    await injectBackendStatus(frontendPath, 'react-vite', isTypeScript, false, backendHealthUrl);
 
   } catch (error) {
     throw new Error(`Vite setup failed: ${error.message}`);
   }
 }
 
-async function generateSvelte(answers, projectPath) {
-  console.log(chalk.gray('  › Running create-svelte (follow the prompts)...\n'));
+async function generateSvelte(answers, projectPath, backendHealthUrl) {
+  console.log(chalk.gray('  › Running Svelte scaffold with compatibility fallbacks...\n'));
   
   try {
-    // Run SvelteKit CLI interactively
-    await execa('npm', ['create', 'svelte@latest', 'frontend'], {
-      cwd: projectPath,
-      stdio: 'inherit'
-    });
+    await runFrameworkScaffold(
+      'SvelteKit',
+      FRONTEND_SCAFFOLD_ATTEMPTS.svelte,
+      projectPath
+    );
 
     console.log(`\n  ${chalk.green('✔')} ${chalk.dim('SvelteKit project created')}\n`);
 
@@ -89,11 +137,127 @@ async function generateSvelte(answers, projectPath) {
     const frontendPath = path.join(projectPath, 'frontend');
     const files = await fs.readdir(frontendPath);
     const isTypeScript = files.includes('tsconfig.json');
+    await ensureFrontendDependencies(frontendPath);
 
     // Inject BackendStatus component
-    await injectBackendStatus(frontendPath, 'svelte', isTypeScript, false);
+    await injectBackendStatus(frontendPath, 'svelte', isTypeScript, false, backendHealthUrl);
 
   } catch (error) {
     throw new Error(`SvelteKit setup failed: ${error.message}`);
+  }
+}
+
+async function runScaffoldCommand(label, command, args, cwd) {
+  let combinedOutput = '';
+  let detectedUnexpectedDevServer = false;
+
+  const subprocess = execa(command, args, {
+    cwd,
+    all: true,
+    timeout: SCAFFOLD_TIMEOUT_MS,
+    env: {
+      ...process.env,
+      CI: '1',
+      npm_config_yes: 'true'
+    }
+  });
+
+  if (subprocess.all) {
+    subprocess.all.on('data', (chunk) => {
+      const text = chunk.toString();
+      combinedOutput += text;
+      process.stdout.write(text);
+
+      if (!detectedUnexpectedDevServer && hasUnexpectedDevServerOutput(text)) {
+        detectedUnexpectedDevServer = true;
+        subprocess.kill('SIGTERM', { forceKillAfterTimeout: 1000 });
+      }
+    });
+  }
+
+  try {
+    await subprocess;
+
+    if (detectedUnexpectedDevServer || hasUnexpectedDevServerOutput(combinedOutput)) {
+      throw new Error(
+        `${label} scaffolding unexpectedly started a dev server. Please retry and choose non-interactive options.`
+      );
+    }
+  } catch (error) {
+    if (detectedUnexpectedDevServer || hasUnexpectedDevServerOutput(combinedOutput)) {
+      throw new Error(
+        `${label} scaffolding unexpectedly started a dev server. Aborted to continue full-stack generation.`
+      );
+    }
+
+    if (error.timedOut) {
+      throw new Error(`${label} scaffolding timed out after ${Math.floor(SCAFFOLD_TIMEOUT_MS / 60000)} minutes.`);
+    }
+
+    throw error;
+  }
+}
+
+function hasUnexpectedDevServerOutput(output) {
+  return UNEXPECTED_DEV_SERVER_PATTERNS.some((pattern) => pattern.test(output));
+}
+
+async function runFrameworkScaffold(label, attempts, projectPath) {
+  const errors = [];
+
+  for (const attempt of attempts) {
+    try {
+      await runScaffoldCommand(label, attempt.command, attempt.args, projectPath);
+      return;
+    } catch (error) {
+      errors.push(`${attempt.command} ${attempt.args.join(' ')} -> ${error.message}`);
+    }
+  }
+
+  throw new Error(errors.join(' | '));
+}
+
+async function detectViteTypeScript(frontendPath) {
+  const checks = [
+    path.join(frontendPath, 'tsconfig.json'),
+    path.join(frontendPath, 'src', 'main.tsx'),
+    path.join(frontendPath, 'src', 'App.tsx')
+  ];
+
+  for (const filePath of checks) {
+    if (await fs.pathExists(filePath)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+async function ensureFrontendDependencies(frontendPath) {
+  const nodeModulesPath = path.join(frontendPath, 'node_modules');
+  if (await fs.pathExists(nodeModulesPath)) {
+    return;
+  }
+
+  const spinner = ora({ text: 'Installing frontend dependencies...', color: 'cyan' }).start();
+
+  try {
+    await execa('npm', ['install'], {
+      cwd: frontendPath,
+      stdio: 'inherit',
+      timeout: SCAFFOLD_TIMEOUT_MS,
+      env: {
+        ...process.env,
+        CI: '1',
+        npm_config_yes: 'true'
+      }
+    });
+    spinner.succeed(chalk.dim('Frontend dependencies installed'));
+  } catch (error) {
+    spinner.fail(chalk.red('Frontend dependency installation failed'));
+    if (error.timedOut) {
+      throw new Error('Frontend dependency installation timed out.');
+    }
+    throw new Error(`Failed to install frontend dependencies: ${error.message}`);
   }
 }

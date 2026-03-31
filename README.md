@@ -42,6 +42,19 @@ npx create-fs-cli
 - **MySQL** - Relational DB
 - **None** - Build without a DB
 
+## ✅ Valid Stack Matrix
+
+- `Next.js API Routes (integrated)` is available only with `Next.js` frontend.
+- When using `Next.js API Routes`, database is forced to `None` because backend is integrated.
+- `FastAPI` backend supports `PostgreSQL`, `MongoDB`, `Supabase`, and `None`.
+- `FastAPI` + `MySQL` is intentionally blocked because the template does not support it.
+
+## 🧪 Scaffold Reliability
+
+- Frontend scaffolders run with explicit templates/flags to avoid interactive hangs.
+- Scaffolding commands use timeout protection to prevent endless blocking processes.
+- Required tools are checked before project generation starts.
+
 ## 📂 Generated Structure
 
 ```text

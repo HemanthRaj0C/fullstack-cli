@@ -3,7 +3,7 @@ import fs from 'fs-extra';
 import chalk from 'chalk';
 import ora from 'ora';
 
-export async function injectBackendStatus(frontendPath, framework, isTypeScript, isIntegrated) {
+export async function injectBackendStatus(frontendPath, framework, isTypeScript, isIntegrated, backendUrl) {
   const spinner = ora({ text: 'Adding BackendStatus component...', color: 'cyan' }).start();
 
   try {
@@ -12,10 +12,10 @@ export async function injectBackendStatus(frontendPath, framework, isTypeScript,
         await injectNextJS(frontendPath, isTypeScript, isIntegrated);
         break;
       case 'react-vite':
-        await injectReactVite(frontendPath, isTypeScript);
+        await injectReactVite(frontendPath, isTypeScript, backendUrl);
         break;
       case 'svelte':
-        await injectSvelte(frontendPath, isTypeScript);
+        await injectSvelte(frontendPath, backendUrl);
         break;
     }
     spinner.succeed(chalk.dim('BackendStatus component added'));
@@ -58,7 +58,7 @@ async function injectNextJS(frontendPath, isTypeScript, isIntegrated) {
   // Try to modify page file
   const pageFile = await findFile(targetDir, `page.${ext}`);
   if (pageFile) {
-    await modifyNextJSPage(pageFile, isTypeScript);
+    await modifyNextJSPage(pageFile);
   }
 }
 
@@ -252,7 +252,7 @@ export default function BackendStatus() {
 `;
 }
 
-async function modifyNextJSPage(pageFile, isTypeScript) {
+async function modifyNextJSPage(pageFile) {
   let content = await fs.readFile(pageFile, 'utf-8');
   
   // Skip if already has BackendStatus
@@ -286,7 +286,7 @@ async function modifyNextJSPage(pageFile, isTypeScript) {
 }
 
 // ============== REACT + VITE ==============
-async function injectReactVite(frontendPath, isTypeScript) {
+async function injectReactVite(frontendPath, isTypeScript, backendUrl) {
   const ext = isTypeScript ? 'tsx' : 'jsx';
   
   // Create components directory
@@ -294,7 +294,7 @@ async function injectReactVite(frontendPath, isTypeScript) {
   await fs.ensureDir(componentsDir);
 
   // Create BackendStatus component
-  const componentCode = getReactBackendStatusCode(isTypeScript);
+  const componentCode = getReactBackendStatusCode(isTypeScript, backendUrl);
   await fs.writeFile(
     path.join(componentsDir, `BackendStatus.${ext}`),
     componentCode
@@ -308,7 +308,7 @@ async function injectReactVite(frontendPath, isTypeScript) {
   }
 }
 
-function getReactBackendStatusCode(isTypeScript) {
+function getReactBackendStatusCode(isTypeScript, backendUrl) {
   if (isTypeScript) {
     return `import { useEffect, useState } from 'react'
 
@@ -321,7 +321,7 @@ export default function BackendStatus() {
   useEffect(() => {
     const checkHealth = async () => {
       try {
-        const res = await fetch('http://localhost:5000/api/health')
+        const res = await fetch('${backendUrl}')
         if (res.ok) {
           const data = await res.json()
           setBackendStatus('connected')
@@ -411,7 +411,7 @@ export default function BackendStatus() {
   useEffect(() => {
     const checkHealth = async () => {
       try {
-        const res = await fetch('http://localhost:5000/api/health')
+        const res = await fetch('${backendUrl}')
         if (res.ok) {
           const data = await res.json()
           setBackendStatus('connected')
@@ -529,15 +529,14 @@ async function modifyReactApp(appFile) {
 }
 
 // ============== SVELTE ==============
-async function injectSvelte(frontendPath, isTypeScript) {
-  const ext = isTypeScript ? 'ts' : 'js';
+async function injectSvelte(frontendPath, backendUrl) {
   
   // Create lib/components directory
   const componentsDir = path.join(frontendPath, 'src', 'lib', 'components');
   await fs.ensureDir(componentsDir);
 
   // Create BackendStatus component
-  const componentCode = getSvelteBackendStatusCode();
+  const componentCode = getSvelteBackendStatusCode(backendUrl);
   await fs.writeFile(
     path.join(componentsDir, 'BackendStatus.svelte'),
     componentCode
@@ -552,7 +551,7 @@ async function injectSvelte(frontendPath, isTypeScript) {
   }
 }
 
-function getSvelteBackendStatusCode() {
+function getSvelteBackendStatusCode(backendUrl) {
   return `<script>
   import { onMount, onDestroy } from 'svelte';
   
@@ -574,7 +573,7 @@ function getSvelteBackendStatusCode() {
   
   async function checkHealth() {
     try {
-      const res = await fetch('http://localhost:5000/api/health');
+      const res = await fetch('${backendUrl}');
       if (res.ok) {
         const data = await res.json();
         backendStatus = 'connected';

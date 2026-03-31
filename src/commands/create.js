@@ -7,8 +7,19 @@ import { execa } from 'execa';
 import { generateFrontend } from '../generators/frontend.js';
 import { generateBackend } from '../generators/backend.js';
 import { showSuccessMessage } from '../utils/messages.js';
+import {
+  getFrontendChoices,
+  getBackendChoices,
+  getDatabaseChoices,
+  normalizeStackSelection
+} from '../utils/stack.js';
+import { runPreflightChecks } from '../utils/preflight.js';
 
 export async function createProject(projectName) {
+  let projectPath;
+  let projectCreated = false;
+  let projectExistedBefore = false;
+
   try {
     // Build prompts - skip project name if provided via CLI
     const prompts = [];
@@ -35,36 +46,21 @@ export async function createProject(projectName) {
         name: 'frontend',
         message: 'Choose frontend framework:',
         prefix: chalk.cyan('?'),
-        choices: [
-          { name: 'Next.js', value: 'nextjs' },
-          { name: 'React + Vite', value: 'react-vite' },
-          { name: 'SvelteKit', value: 'svelte' }
-        ]
+        choices: getFrontendChoices()
       },
       {
         type: 'list',
         name: 'backend',
         message: 'Choose backend framework:',
         prefix: chalk.cyan('?'),
-        choices: [
-          { name: 'Next.js API Routes (integrated)', value: 'nextjs-api' },
-          { name: 'Express', value: 'express' },
-          { name: 'Fastify', value: 'fastify' },
-          { name: 'FastAPI (Python)', value: 'fastapi' }
-        ]
+        choices: (currentAnswers) => getBackendChoices(currentAnswers.frontend)
       },
       {
         type: 'list',
         name: 'database',
         message: 'Choose database:',
         prefix: chalk.cyan('?'),
-        choices: [
-          { name: 'PostgreSQL', value: 'postgres' },
-          { name: 'MongoDB', value: 'mongodb' },
-          { name: 'MySQL', value: 'mysql' },
-          { name: 'Supabase', value: 'supabase' },
-          { name: 'None', value: 'none' }
-        ]
+        choices: (currentAnswers) => getDatabaseChoices(currentAnswers.backend)
       }
     );
 
@@ -77,16 +73,22 @@ export async function createProject(projectName) {
       answers.projectName = projectName;
     }
 
-    // Validate backend/database combination
-    if (answers.backend === 'fastapi' && answers.database === 'mysql') {
-      console.log(`\n  ${chalk.yellow('⚠')} ${chalk.bold('Warning')} ${chalk.dim('· FastAPI template does not support MySQL. Defaulting to PostgreSQL.')}\n`);
-      answers.database = 'postgres';
+    const { normalized, warnings } = normalizeStackSelection(answers);
+    Object.assign(answers, normalized);
+
+    for (const warning of warnings) {
+      console.log(`\n  ${chalk.yellow('⚠')} ${chalk.bold('Warning')} ${chalk.dim(`· ${warning}`)}\n`);
     }
 
+    await runPreflightChecks(answers);
+    console.log(`  ${chalk.green('✔')} ${chalk.bold('Preflight')} ${chalk.dim('· required tools detected')}`);
+
     // Create project directory
-    const projectPath = path.join(process.cwd(), answers.projectName);
+    projectPath = path.join(process.cwd(), answers.projectName);
     
     if (await fs.pathExists(projectPath)) {
+      projectExistedBefore = true;
+
       const { overwrite } = await inquirer.prompt([
         {
           type: 'confirm',
@@ -105,6 +107,7 @@ export async function createProject(projectName) {
     }
 
     await fs.ensureDir(projectPath);
+    projectCreated = true;
     console.log(`\n  ${chalk.green('✔')} ${chalk.bold('Project Directory')} ${chalk.dim('·')} ${answers.projectName}`);
 
     // Step 2: Generate frontend
@@ -129,8 +132,21 @@ export async function createProject(projectName) {
     showSuccessMessage(answers);
 
   } catch (error) {
+    if (projectCreated && projectPath && !projectExistedBefore) {
+      await cleanupFailedProject(projectPath);
+    }
+
     console.error(`\n  ${chalk.red('✖')} ${chalk.bold('Error')} ${chalk.dim('·')} ${error.message}\n`);
     process.exit(1);
+  }
+}
+
+async function cleanupFailedProject(projectPath) {
+  try {
+    await fs.remove(projectPath);
+    console.log(`  ${chalk.yellow('⚠')} ${chalk.dim('Removed partially generated project directory after failure.')}`);
+  } catch (error) {
+    console.log(`  ${chalk.yellow('⚠')} ${chalk.dim(`Could not clean partial project: ${error.message}`)}`);
   }
 }
 
