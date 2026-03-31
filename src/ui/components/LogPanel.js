@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { Box, Text } from 'ink';
 
-export function LogPanel({ logs, maxHeight = 10, phase = null }) {
+export function LogPanel({ logs, maxHeight = 10, phase = null, noBorder = false, title = null }) {
   const filteredLogs = useMemo(() => {
     if (!phase) return logs;
     return logs.filter(log => log.phase === phase);
@@ -12,6 +12,10 @@ export function LogPanel({ logs, maxHeight = 10, phase = null }) {
   }, [filteredLogs, maxHeight]);
 
   const getPhaseLabel = () => {
+    if (title) {
+      return title;
+    }
+
     switch (phase) {
       case 'frontend':
         return 'Frontend Logs';
@@ -25,7 +29,12 @@ export function LogPanel({ logs, maxHeight = 10, phase = null }) {
   if (filteredLogs.length === 0) {
     return React.createElement(
       Box,
-      { flexDirection: 'column', borderStyle: 'single', borderColor: 'cyan', padding: 1 },
+      {
+        flexDirection: 'column',
+        borderStyle: noBorder ? undefined : 'single',
+        borderColor: 'cyan',
+        padding: noBorder ? 0 : 1
+      },
       React.createElement(Text, { bold: true, color: 'cyan' }, getPhaseLabel()),
       React.createElement(Text, { dimColor: true }, 'Waiting for output...')
     );
@@ -62,9 +71,9 @@ export function LogPanel({ logs, maxHeight = 10, phase = null }) {
     Box,
     {
       flexDirection: 'column',
-      borderStyle: 'single',
+      borderStyle: noBorder ? undefined : 'single',
       borderColor: 'cyan',
-      padding: 1,
+      padding: noBorder ? 0 : 1,
     },
     React.createElement(Text, { bold: true, color: 'cyan' }, `${getPhaseLabel()} (${filteredLogs.length} total)`),
     React.createElement(Box, { flexDirection: 'column', marginTop: 1 }, logElements),

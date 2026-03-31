@@ -22,10 +22,12 @@ const DATABASE_BRANCHES = {
 
 export async function generateBackend(answers, projectPath) {
   const { backend, database } = answers;
+  const logger = createScopedLogger(answers.__log, 'backend');
+  const tuiMode = isTuiMode();
   
-  console.log(`\n${chalk.cyan('◯')} ${chalk.bold('Backend')} ${chalk.dim('· Setting up')} ${chalk.white(backend)}`);
+  logger(`\n${chalk.cyan('◯')} ${chalk.bold('Backend')} ${chalk.dim('· Setting up')} ${chalk.white(backend)}`);
   
-  const spinner = ora({ text: `Initializing...`, color: 'cyan' }).start();
+  const spinner = tuiMode ? null : ora({ text: 'Initializing...', color: 'cyan' }).start();
 
   try {
     const templateUrl = TEMPLATES[backend];
@@ -34,7 +36,11 @@ export async function generateBackend(answers, projectPath) {
     const isPython = backend === 'fastapi';
     
     // Update spinner text
-    spinner.text = `Cloning ${backend} template (${branch} branch)...`;
+    if (spinner) {
+      spinner.text = `Cloning ${backend} template (${branch} branch)...`;
+    } else {
+      logger(`  > Cloning ${backend} template (${branch} branch)...`);
+    }
     
     await execa('git', [
       'clone',
@@ -64,20 +70,63 @@ export async function generateBackend(answers, projectPath) {
     }
 
     // Install dependencies
-    spinner.text = 'Installing backend dependencies...';
+    if (spinner) {
+      spinner.text = 'Installing backend dependencies...';
+    } else {
+      logger('  > Installing backend dependencies...');
+    }
     
     if (isPython) {
       // For Python, just show message (user needs venv)
-      spinner.succeed(chalk.dim('Backend ready'));
-      console.log(`  ${chalk.yellow('⚠')} ${chalk.dim('Run: cd backend && pip install -r requirements.txt')}\n`);
+      if (spinner) {
+        spinner.succeed(chalk.dim('Backend ready'));
+      } else {
+        logger(`  ${chalk.green('✔')} ${chalk.dim('Backend ready')}`);
+      }
+      logger(`  ${chalk.yellow('⚠')} ${chalk.dim('Run: cd backend && pip install -r requirements.txt')}\n`);
     } else {
       // For Node.js backends, auto-install
-      await execa('npm', ['install'], { cwd: backendPath });
-      spinner.succeed(chalk.dim('Backend ready (dependencies installed)'));
+      const subprocess = execa('npm', ['install'], {
+        cwd: backendPath,
+        all: true
+      });
+
+      if (subprocess.all) {
+        subprocess.all.on('data', (chunk) => {
+          const text = chunk.toString();
+          if (tuiMode) {
+            logger(text);
+          } else {
+            process.stdout.write(text);
+          }
+        });
+      }
+
+      await subprocess;
+
+      if (spinner) {
+        spinner.succeed(chalk.dim('Backend ready (dependencies installed)'));
+      } else {
+        logger(`  ${chalk.green('✔')} ${chalk.dim('Backend ready (dependencies installed)')}`);
+      }
     }
 
   } catch (error) {
-    spinner.fail(chalk.red('Backend setup failed'));
+    if (spinner) {
+      spinner.fail(chalk.red('Backend setup failed'));
+    }
     throw new Error(`Failed to setup backend: ${error.message}`);
   }
+}
+
+function createScopedLogger(externalLogger, phase) {
+  if (typeof externalLogger === 'function') {
+    return (message, type = 'info') => externalLogger(message, type, phase);
+  }
+
+  return (message) => console.log(message);
+}
+
+function isTuiMode() {
+  return process.env.CREATE_FS_TUI === '1';
 }

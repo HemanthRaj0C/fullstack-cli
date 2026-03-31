@@ -4,7 +4,8 @@ import chalk from 'chalk';
 import ora from 'ora';
 
 export async function injectBackendStatus(frontendPath, framework, isTypeScript, isIntegrated, backendUrl) {
-  const spinner = ora({ text: 'Adding BackendStatus component...', color: 'cyan' }).start();
+  const tuiMode = process.env.CREATE_FS_TUI === '1';
+  const spinner = tuiMode ? null : ora({ text: 'Adding BackendStatus component...', color: 'cyan' }).start();
 
   try {
     switch (framework) {
@@ -18,9 +19,13 @@ export async function injectBackendStatus(frontendPath, framework, isTypeScript,
         await injectSvelte(frontendPath, backendUrl);
         break;
     }
-    spinner.succeed(chalk.dim('BackendStatus component added'));
+    if (spinner) {
+      spinner.succeed(chalk.dim('BackendStatus component added'));
+    }
   } catch (error) {
-    spinner.warn(chalk.yellow(`Could not auto-inject BackendStatus: ${error.message}`));
+    if (spinner) {
+      spinner.warn(chalk.yellow(`Could not auto-inject BackendStatus: ${error.message}`));
+    }
   }
 }
 

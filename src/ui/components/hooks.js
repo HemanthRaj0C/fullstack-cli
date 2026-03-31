@@ -16,9 +16,13 @@ export function useSelection() {
 
 export function useOutput() {
   const [logs, setLogs] = useState([]);
+  const MAX_LOG_LINES = 500;
 
   const addLog = (message, type = 'info', phase = 'info') => {
-    setLogs((prev) => [...prev, { message, type, phase, timestamp: Date.now() }]);
+    setLogs((prev) => {
+      const next = [...prev, { message, type, phase, timestamp: Date.now() }];
+      return next.slice(-MAX_LOG_LINES);
+    });
   };
 
   const clearLogs = () => {

@@ -31,7 +31,7 @@ const StatusLabel = ({ status }) => {
   }
 };
 
-export function StepTimeline({ steps }) {
+export function StepTimeline({ steps, noBorder = false }) {
   const stepOrder = ['preflight', 'frontend', 'backend', 'backendStatus'];
   const stepLabels = {
     preflight: 'Check Prerequisites',
@@ -67,7 +67,12 @@ export function StepTimeline({ steps }) {
 
   return React.createElement(
     Box,
-    { flexDirection: 'column', borderStyle: 'single', borderColor: 'cyan', padding: 1 },
+    {
+      flexDirection: 'column',
+      borderStyle: noBorder ? undefined : 'single',
+      borderColor: 'cyan',
+      padding: noBorder ? 0 : 1
+    },
     React.createElement(Text, { bold: true, color: 'cyan' }, 'Progress Timeline'),
     React.createElement(Box, { flexDirection: 'column', marginTop: 1, gap: 0 }, stepElements)
   );

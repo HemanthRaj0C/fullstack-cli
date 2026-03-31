@@ -4,13 +4,12 @@ import { SelectScreen } from './components/SelectScreen.js';
 import { PreviewPanel } from './components/PreviewPanel.js';
 import { LogPanel } from './components/LogPanel.js';
 import { StepTimeline } from './components/StepTimeline.js';
+import { ProgressBar } from './components/ProgressBar.js';
 import { useSelection, useOutput, useProgress } from './components/hooks.js';
 import { normalizeStackSelection } from '../utils/stack.js';
 import { runPreflightChecks } from '../utils/preflight.js';
 import { generateFrontend } from '../generators/frontend.js';
 import { generateBackend } from '../generators/backend.js';
-import { injectBackendStatus } from '../generators/backendStatus.js';
-import { execa } from 'execa';
 import chalk from 'chalk';
 import fs from 'fs-extra';
 import path from 'path';
@@ -24,11 +23,35 @@ function FullscreenApp() {
   const [isRunning, setIsRunning] = useState(false);
   const [error, setError] = useState(null);
 
+  const cleanLogMessage = (value) => {
+    if (typeof value !== 'string') {
+      return String(value ?? '');
+    }
+
+    // Strip ANSI escape sequences so logs render cleanly in Ink panels.
+    const noAnsi = value.replace(/\x1B\[[0-9;]*[A-Za-z]/g, '');
+    return noAnsi.replace(/\r/g, '').trim();
+  };
+
+  const logFromGenerator = (rawMessage, type = 'info', phase = 'info') => {
+    const lines = cleanLogMessage(rawMessage)
+      .split('\n')
+      .map((line) => line.trimEnd())
+      .filter((line) => line.length > 0);
+
+    for (const line of lines) {
+      addLog(line, type, phase);
+    }
+  };
+
   const handleSelectionComplete = async (finalSelections) => {
     setMode('run');
     clearLogs();
     setIsRunning(true);
     setError(null);
+
+    const previousTuiFlag = process.env.CREATE_FS_TUI;
+    process.env.CREATE_FS_TUI = '1';
 
     try {
       // Normalize selections
@@ -49,6 +72,7 @@ function FullscreenApp() {
       // Run generation steps
       await runGenerationSteps(projectPath, normalized, {
         addLog,
+        logFromGenerator,
         updateStep,
       });
 
@@ -57,6 +81,12 @@ function FullscreenApp() {
       addLog(`\n✗ Error: ${err.message}`, 'error');
       setError(err.message);
       setIsRunning(false);
+    } finally {
+      if (previousTuiFlag === undefined) {
+        delete process.env.CREATE_FS_TUI;
+      } else {
+        process.env.CREATE_FS_TUI = previousTuiFlag;
+      }
     }
   };
 
@@ -87,7 +117,6 @@ function FullscreenApp() {
     return React.createElement(
       Box,
       { flexDirection: 'column', gap: 1, padding: 1, width: '100%' },
-      // Header info
       React.createElement(
         Box,
         { key: 'header', marginBottom: 1 },
@@ -97,24 +126,47 @@ function FullscreenApp() {
           '⚙️  Full-Stack CLI Generator'
         )
       ),
-      // Main layout: Timeline + Logs side by side
       React.createElement(
         Box,
-        { key: 'main-layout', flexDirection: 'row', gap: 2, width: '100%' },
-        // Left side: Timeline
+        {
+          key: 'dashboard',
+          flexDirection: 'column',
+          borderStyle: 'round',
+          borderColor: 'cyan',
+          padding: 1,
+          width: '100%'
+        },
+        React.createElement(ProgressBar, { steps, key: 'progress' }),
         React.createElement(
           Box,
-          { key: 'timeline-col', flexDirection: 'column', width: '48%' },
-          React.createElement(StepTimeline, { steps, key: 'timeline' })
+          { key: 'main-layout', flexDirection: 'row', gap: 2, width: '100%', marginTop: 1 },
+          React.createElement(
+            Box,
+            { key: 'timeline-col', flexDirection: 'column', width: '40%' },
+            React.createElement(StepTimeline, { steps, key: 'timeline', noBorder: true })
+          ),
+          React.createElement(
+            Box,
+            { key: 'logs-col', flexDirection: 'column', width: '60%', gap: 1 },
+            React.createElement(LogPanel, {
+              logs,
+              phase: 'frontend',
+              maxHeight: 7,
+              key: 'frontend-logs',
+              noBorder: true,
+              title: 'Frontend Logs'
+            }),
+            React.createElement(LogPanel, {
+              logs,
+              phase: 'backend',
+              maxHeight: 7,
+              key: 'backend-logs',
+              noBorder: true,
+              title: 'Backend Logs'
+            })
+          )
         ),
-        // Right side: Logs
-        React.createElement(
-          Box,
-          { key: 'logs-col', flexDirection: 'column', width: '52%' },
-          React.createElement(LogPanel, { logs, maxHeight: 15, key: 'logs' })
-        )
       ),
-      // Footer status
       React.createElement(
         Box,
         { key: 'footer', marginTop: 1 },
@@ -136,7 +188,7 @@ function FullscreenApp() {
 }
 
 // Run the actual generation with proper step tracking
-async function runGenerationSteps(projectPath, normalized, { addLog, updateStep }) {
+async function runGenerationSteps(projectPath, normalized, { addLog, logFromGenerator, updateStep }) {
   try {
     // Validate selections first
     const preflightAnswers = {
@@ -169,7 +221,11 @@ async function runGenerationSteps(projectPath, normalized, { addLog, updateStep 
     try {
       const frontendPath = path.join(projectPath, 'frontend');
       await generateFrontend(
-        { frontend: normalized.frontend },
+        {
+          frontend: normalized.frontend,
+          backend: normalized.backend,
+          __log: logFromGenerator
+        },
         projectPath
       );
       addLog(`✓ Frontend setup complete`, 'success', 'frontend');
@@ -182,18 +238,27 @@ async function runGenerationSteps(projectPath, normalized, { addLog, updateStep 
 
     // Step 2: Backend
     updateStep('backend', 'running');
-    addLog(`→ Setting up ${normalized.backend} ${normalized.database ? `with ${normalized.database}` : 'backend'}...`, 'info', 'backend');
-    try {
-      await generateBackend(
-        { backend: normalized.backend, database: normalized.database },
-        projectPath
-      );
-      addLog(`✓ Backend setup complete`, 'success', 'backend');
+    if (normalized.backend === 'nextjs-api') {
+      addLog('→ Using integrated Next.js API routes (no separate backend scaffold)', 'info', 'backend');
       updateStep('backend', 'done');
-    } catch (err) {
-      addLog(`✗ Backend setup failed: ${err.message}`, 'error', 'backend');
-      updateStep('backend', 'failed');
-      throw new Error(`Backend setup failed: ${err.message}`);
+    } else {
+      addLog(`→ Setting up ${normalized.backend} ${normalized.database ? `with ${normalized.database}` : 'backend'}...`, 'info', 'backend');
+      try {
+        await generateBackend(
+          {
+            backend: normalized.backend,
+            database: normalized.database,
+            __log: logFromGenerator
+          },
+          projectPath
+        );
+        addLog(`✓ Backend setup complete`, 'success', 'backend');
+        updateStep('backend', 'done');
+      } catch (err) {
+        addLog(`✗ Backend setup failed: ${err.message}`, 'error', 'backend');
+        updateStep('backend', 'failed');
+        throw new Error(`Backend setup failed: ${err.message}`);
+      }
     }
 
     // Step 3: Backend Status Component (if separate frontend/backend)
@@ -208,6 +273,8 @@ async function runGenerationSteps(projectPath, normalized, { addLog, updateStep 
         addLog(`⚠ Backend status config skipped: ${err.message}`, 'warning', 'backend');
         updateStep('backendStatus', 'done');
       }
+    } else {
+      updateStep('backendStatus', 'done');
     }
 
     // Success

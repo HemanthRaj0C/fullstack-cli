@@ -52,41 +52,43 @@ const FRONTEND_SCAFFOLD_ATTEMPTS = {
 export async function generateFrontend(answers, projectPath) {
   const { frontend } = answers;
   const backendHealthUrl = answers.backend === 'nextjs-api' ? '/api/health' : 'http://localhost:5000/api/health';
+  const logger = createScopedLogger(answers.__log, 'frontend');
 
-  console.log(`\n${chalk.cyan('◯')} ${chalk.bold('Frontend')} ${chalk.dim('· Setting up')} ${chalk.white(frontend)}`);
+  logger(`\n${chalk.cyan('◯')} ${chalk.bold('Frontend')} ${chalk.dim('· Setting up')} ${chalk.white(frontend)}`);
 
   switch (frontend) {
     case 'nextjs':
-      await generateNextJS(answers, projectPath, backendHealthUrl);
+      await generateNextJS(answers, projectPath, backendHealthUrl, logger);
       break;
     case 'react-vite':
-      await generateReactVite(answers, projectPath, backendHealthUrl);
+      await generateReactVite(answers, projectPath, backendHealthUrl, logger);
       break;
     case 'svelte':
-      await generateSvelte(answers, projectPath, backendHealthUrl);
+      await generateSvelte(answers, projectPath, backendHealthUrl, logger);
       break;
     default:
       throw new Error(`Unsupported frontend: ${frontend}`);
   }
 }
 
-async function generateNextJS(answers, projectPath, backendHealthUrl) {
-  console.log(chalk.gray('  › Running create-next-app in non-interactive mode...\n'));
+async function generateNextJS(answers, projectPath, backendHealthUrl, logger) {
+  logger(chalk.gray('  › Running create-next-app in non-interactive mode...\n'));
   
   try {
     await runFrameworkScaffold(
       'Next.js',
       FRONTEND_SCAFFOLD_ATTEMPTS.nextjs,
-      projectPath
+      projectPath,
+      logger
     );
 
-    console.log(`\n  ${chalk.green('✔')} ${chalk.dim('Next.js project created')}\n`);
+    logger(`\n  ${chalk.green('✔')} ${chalk.dim('Next.js project created')}\n`);
 
     // Detect if TypeScript was chosen
     const frontendPath = path.join(projectPath, 'frontend');
     const packageJson = await fs.readJSON(path.join(frontendPath, 'package.json'));
     const isTypeScript = !!packageJson.devDependencies?.typescript;
-    await ensureFrontendDependencies(frontendPath);
+    await ensureFrontendDependencies(frontendPath, logger);
 
     // Inject BackendStatus component
     await injectBackendStatus(frontendPath, 'nextjs', isTypeScript, answers.backend === 'nextjs-api', backendHealthUrl);
@@ -96,22 +98,23 @@ async function generateNextJS(answers, projectPath, backendHealthUrl) {
   }
 }
 
-async function generateReactVite(answers, projectPath, backendHealthUrl) {
-  console.log(chalk.gray('  › Running create-vite in non-interactive mode...\n'));
+async function generateReactVite(answers, projectPath, backendHealthUrl, logger) {
+  logger(chalk.gray('  › Running create-vite in non-interactive mode...\n'));
   
   try {
     await runFrameworkScaffold(
       'Vite',
       FRONTEND_SCAFFOLD_ATTEMPTS['react-vite'],
-      projectPath
+      projectPath,
+      logger
     );
 
-    console.log(`\n  ${chalk.green('✔')} ${chalk.dim('React + Vite project created')}\n`);
+    logger(`\n  ${chalk.green('✔')} ${chalk.dim('React + Vite project created')}\n`);
 
     // Detect if TypeScript was chosen
     const frontendPath = path.join(projectPath, 'frontend');
     const isTypeScript = await detectViteTypeScript(frontendPath);
-    await ensureFrontendDependencies(frontendPath);
+    await ensureFrontendDependencies(frontendPath, logger);
 
     // Inject BackendStatus component
     await injectBackendStatus(frontendPath, 'react-vite', isTypeScript, false, backendHealthUrl);
@@ -121,23 +124,24 @@ async function generateReactVite(answers, projectPath, backendHealthUrl) {
   }
 }
 
-async function generateSvelte(answers, projectPath, backendHealthUrl) {
-  console.log(chalk.gray('  › Running Svelte scaffold with compatibility fallbacks...\n'));
+async function generateSvelte(answers, projectPath, backendHealthUrl, logger) {
+  logger(chalk.gray('  › Running Svelte scaffold with compatibility fallbacks...\n'));
   
   try {
     await runFrameworkScaffold(
       'SvelteKit',
       FRONTEND_SCAFFOLD_ATTEMPTS.svelte,
-      projectPath
+      projectPath,
+      logger
     );
 
-    console.log(`\n  ${chalk.green('✔')} ${chalk.dim('SvelteKit project created')}\n`);
+    logger(`\n  ${chalk.green('✔')} ${chalk.dim('SvelteKit project created')}\n`);
 
     // Detect if TypeScript was chosen
     const frontendPath = path.join(projectPath, 'frontend');
     const files = await fs.readdir(frontendPath);
     const isTypeScript = files.includes('tsconfig.json');
-    await ensureFrontendDependencies(frontendPath);
+    await ensureFrontendDependencies(frontendPath, logger);
 
     // Inject BackendStatus component
     await injectBackendStatus(frontendPath, 'svelte', isTypeScript, false, backendHealthUrl);
@@ -147,7 +151,7 @@ async function generateSvelte(answers, projectPath, backendHealthUrl) {
   }
 }
 
-async function runScaffoldCommand(label, command, args, cwd) {
+async function runScaffoldCommand(label, command, args, cwd, logger) {
   let combinedOutput = '';
   let detectedUnexpectedDevServer = false;
 
@@ -166,7 +170,11 @@ async function runScaffoldCommand(label, command, args, cwd) {
     subprocess.all.on('data', (chunk) => {
       const text = chunk.toString();
       combinedOutput += text;
-      process.stdout.write(text);
+      if (logger) {
+        logger(text);
+      } else {
+        process.stdout.write(text);
+      }
 
       if (!detectedUnexpectedDevServer && hasUnexpectedDevServerOutput(text)) {
         detectedUnexpectedDevServer = true;
@@ -202,12 +210,12 @@ function hasUnexpectedDevServerOutput(output) {
   return UNEXPECTED_DEV_SERVER_PATTERNS.some((pattern) => pattern.test(output));
 }
 
-async function runFrameworkScaffold(label, attempts, projectPath) {
+async function runFrameworkScaffold(label, attempts, projectPath, logger) {
   const errors = [];
 
   for (const attempt of attempts) {
     try {
-      await runScaffoldCommand(label, attempt.command, attempt.args, projectPath);
+      await runScaffoldCommand(label, attempt.command, attempt.args, projectPath, logger);
       return;
     } catch (error) {
       errors.push(`${attempt.command} ${attempt.args.join(' ')} -> ${error.message}`);
@@ -233,14 +241,16 @@ async function detectViteTypeScript(frontendPath) {
   return false;
 }
 
-async function ensureFrontendDependencies(frontendPath) {
+async function ensureFrontendDependencies(frontendPath, logger) {
   const nodeModulesPath = path.join(frontendPath, 'node_modules');
   if (await fs.pathExists(nodeModulesPath)) {
     return;
   }
 
+  const scopedLogger = logger || createScopedLogger(null, 'frontend');
+
   if (isTuiMode()) {
-    console.log('  > Installing frontend dependencies...');
+    scopedLogger('  > Installing frontend dependencies...');
   }
 
   const spinner = isTuiMode()
@@ -261,7 +271,12 @@ async function ensureFrontendDependencies(frontendPath) {
 
     if (subprocess.all) {
       subprocess.all.on('data', (chunk) => {
-        process.stdout.write(chunk.toString());
+        const text = chunk.toString();
+        if (isTuiMode()) {
+          scopedLogger(text);
+        } else {
+          process.stdout.write(text);
+        }
       });
     }
 
@@ -270,7 +285,7 @@ async function ensureFrontendDependencies(frontendPath) {
     if (spinner) {
       spinner.succeed(chalk.dim('Frontend dependencies installed'));
     } else {
-      console.log('  > Frontend dependencies installed');
+      scopedLogger('  > Frontend dependencies installed');
     }
   } catch (error) {
     if (spinner) {
@@ -282,6 +297,14 @@ async function ensureFrontendDependencies(frontendPath) {
     }
     throw new Error(`Failed to install frontend dependencies: ${error.message}`);
   }
+}
+
+function createScopedLogger(externalLogger, phase) {
+  if (typeof externalLogger === 'function') {
+    return (message, type = 'info') => externalLogger(message, type, phase);
+  }
+
+  return (message) => console.log(message);
 }
 
 function isTuiMode() {
