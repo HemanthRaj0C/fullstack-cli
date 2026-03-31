@@ -1,42 +1,85 @@
 import React from 'react';
 import { Box, Text } from 'ink';
 import { normalizeStackSelection } from '../../utils/stack.js';
+import { colors } from '../theme.js';
 
+/**
+ * PreviewPanel - Shows selected stack preview
+ */
 export function PreviewPanel({ selections }) {
-  const isComplete = selections.frontend && selections.backend && selections.database;
+  const hasAnySelection = selections.frontend || selections.backend || selections.database;
 
-  if (!isComplete) {
+  // Title
+  const title = React.createElement(
+    Box,
+    { marginBottom: 1 },
+    React.createElement(
+      Text,
+      { color: colors.secondary, bold: true },
+      'Preview'
+    )
+  );
+
+  // Empty state
+  if (!hasAnySelection) {
     return React.createElement(
       Box,
-      { flexDirection: 'column', borderStyle: 'single', borderColor: 'gray', padding: 1, width: 50 },
-      React.createElement(Text, { bold: true, color: 'yellow' }, 'Stack Preview'),
-      React.createElement(Text, { dimColor: true }, 'Selections will appear here...')
+      { flexDirection: 'column' },
+      title,
+      React.createElement(
+        Text,
+        { color: colors.muted },
+        'Select options to see preview...'
+      )
     );
   }
 
-  const normalized = normalizeStackSelection(selections);
-  const jsonStr = JSON.stringify(normalized, null, 2);
-  const jsonLines = jsonStr.split('\n').map((line, idx) =>
-    React.createElement(Text, { key: idx, color: 'white' }, line)
+  // Show current selections
+  const selectionsList = React.createElement(
+    Box,
+    { flexDirection: 'column', gap: 0 },
+    selections.frontend && React.createElement(
+      Box,
+      { flexDirection: 'row', gap: 1 },
+      React.createElement(Text, { color: colors.muted }, 'Frontend:'),
+      React.createElement(Text, { color: colors.primary, bold: true }, selections.frontend)
+    ),
+    selections.backend && React.createElement(
+      Box,
+      { flexDirection: 'row', gap: 1 },
+      React.createElement(Text, { color: colors.muted }, 'Backend:'),
+      React.createElement(Text, { color: colors.primary, bold: true }, selections.backend)
+    ),
+    selections.database && React.createElement(
+      Box,
+      { flexDirection: 'row', gap: 1 },
+      React.createElement(Text, { color: colors.muted }, 'Database:'),
+      React.createElement(Text, { color: colors.primary, bold: true }, selections.database)
+    )
   );
 
-  const warnings =
-    normalized.warnings && normalized.warnings.length > 0
-      ? React.createElement(
-          Box,
-          { flexDirection: 'column', marginTop: 1 },
-          React.createElement(Text, { bold: true, color: 'yellow' }, 'Warnings:'),
-          ...normalized.warnings.map((warn, idx) =>
-            React.createElement(Text, { key: idx, color: 'yellow', dimColor: true }, `• ${warn}`)
-          )
-        )
-      : null;
+  // Generate simple package.json preview
+  const packagePreview = React.createElement(
+    Box,
+    { flexDirection: 'column', marginTop: 2 },
+    React.createElement(Text, { color: colors.muted, dimColor: true }, '// package.json'),
+    React.createElement(Text, { color: colors.text }, '{'),
+    React.createElement(Text, { color: colors.text }, '  "name": "my-app",'),
+    React.createElement(Text, { color: colors.text }, '  "version": "0.1.0",'),
+    selections.frontend && React.createElement(
+      Text, 
+      { color: colors.text }, 
+      `  "framework": "${selections.frontend}",`
+    ),
+    React.createElement(Text, { color: colors.text }, '  ...'),
+    React.createElement(Text, { color: colors.text }, '}')
+  );
 
   return React.createElement(
     Box,
-    { flexDirection: 'column', borderStyle: 'single', borderColor: 'green', padding: 1, width: 50 },
-    React.createElement(Text, { bold: true, color: 'green' }, 'Stack Preview'),
-    jsonLines,
-    warnings
+    { flexDirection: 'column' },
+    title,
+    selectionsList,
+    packagePreview
   );
 }

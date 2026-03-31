@@ -1,7 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Text } from 'ink';
+import { colors } from '../theme.js';
 
-export function ProgressBar({ steps = {} }) {
+/**
+ * ProgressBar - Clean progress bar display
+ */
+export function ProgressBar({ steps = {}, showTimer = true }) {
   const [elapsed, setElapsed] = useState(0);
   
   useEffect(() => {
@@ -15,7 +19,7 @@ export function ProgressBar({ steps = {} }) {
     preflight: 'Prerequisites',
     frontend: 'Frontend',
     backend: 'Backend',
-    backendStatus: 'Status Component',
+    backendStatus: 'Config',
   };
 
   const stepOrder = ['preflight', 'frontend', 'backend', 'backendStatus'];
@@ -24,22 +28,18 @@ export function ProgressBar({ steps = {} }) {
   const percentage = Math.round((completedSteps / totalSteps) * 100);
   
   const currentStep = stepOrder.find(s => steps[s] === 'running');
-  const currentLabel = currentStep ? stepLabels[currentStep] : 'Starting...';
+  const currentLabel = currentStep ? stepLabels[currentStep] : (percentage === 100 ? 'Done' : 'Starting');
   
-  // Visual bar (40 chars wide)
-  const barLength = 40;
-  const filledLength = Math.round((completedSteps / totalSteps) * barLength);
-  const emptyLength = barLength - filledLength;
-  
-  // Use gradient colors based on progress
-  let barColor = 'gray';
-  if (percentage < 25) barColor = 'red';
-  else if (percentage < 50) barColor = 'yellow';
-  else if (percentage < 100) barColor = 'cyan';
-  else barColor = 'green';
+  // Build visual progress bar (30 chars wide)
+  const barWidth = 30;
+  const filledLength = Math.round((percentage / 100) * barWidth);
+  const emptyLength = barWidth - filledLength;
   
   const filled = '█'.repeat(filledLength);
   const empty = '░'.repeat(emptyLength);
+  
+  // Color based on progress
+  const barColor = percentage === 100 ? colors.success : colors.primary;
   
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
@@ -50,64 +50,48 @@ export function ProgressBar({ steps = {} }) {
   return React.createElement(
     Box,
     { 
-      flexDirection: 'column', 
-      gap: 0, 
-      marginBottom: 1,
-      borderStyle: 'round',
-      borderColor: 'cyan',
-      padding: 1
+      flexDirection: 'column',
+      borderStyle: 'single',
+      borderColor: colors.primary,
+      paddingX: 2,
+      paddingY: 1,
     },
-    // Title and stats row
+    // Title and timer
     React.createElement(
       Box,
-      { flexDirection: 'row', gap: 2, marginBottom: 1 },
+      { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 1 },
       React.createElement(
         Text,
-        { color: 'cyan', bold: true },
-        '📦 Project Generation'
+        { color: colors.secondary, bold: true },
+        'Progress'
       ),
-      React.createElement(
+      showTimer && React.createElement(
         Text,
-        { color: 'gray' },
-        `[${completedSteps}/${totalSteps} steps]`
-      ),
-      React.createElement(
-        Text,
-        { color: 'gray' },
-        `⏱ ${formatTime(elapsed)}`
+        { color: colors.muted },
+        formatTime(elapsed)
       )
     ),
     // Progress bar
     React.createElement(
       Box,
-      { flexDirection: 'row', gap: 1, alignItems: 'center' },
-      React.createElement(
-        Text,
-        { color: barColor, bold: true },
-        `[${filled}${empty}]`
-      ),
-      React.createElement(
-        Text,
-        { 
-          color: percentage === 100 ? 'green' : (percentage >= 50 ? 'cyan' : 'yellow'),
-          bold: true 
-        },
-        `${percentage}%`
-      )
+      { flexDirection: 'row', gap: 1 },
+      React.createElement(Text, { color: barColor }, `[${filled}${empty}]`),
+      React.createElement(Text, { color: barColor, bold: true }, `${percentage}%`)
     ),
-    // Current step info
+    // Current step
     React.createElement(
       Box,
-      { flexDirection: 'row', gap: 1, marginTop: 1 },
+      { marginTop: 1, flexDirection: 'row', gap: 1 },
+      React.createElement(Text, { color: colors.muted }, 'Current:'),
       React.createElement(
-        Text,
-        { color: 'yellow' },
-        '▶'
+        Text, 
+        { color: currentStep ? colors.warning : colors.success },
+        currentLabel
       ),
       React.createElement(
         Text,
-        { color: 'yellow', italic: true },
-        `Currently: ${currentLabel}`
+        { color: colors.muted },
+        `(${completedSteps}/${totalSteps})`
       )
     )
   );

@@ -2,8 +2,12 @@ import React, { useState } from 'react';
 import { Box, Text } from 'ink';
 import { useInput } from 'ink';
 import { getFrontendChoices, getBackendChoices, getDatabaseChoices } from '../../utils/stack.js';
+import { colors } from '../theme.js';
 
-export function SelectScreen({ onComplete, onCancel }) {
+/**
+ * SelectScreen - Clean selection wizard
+ */
+export function SelectScreen({ onComplete, onCancel, onSelectionChange }) {
   const [step, setStep] = useState('frontend');
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [selections, setSelections] = useState({
@@ -21,16 +25,21 @@ export function SelectScreen({ onComplete, onCancel }) {
 
   const handleSelect = (choiceValue) => {
     if (step === 'frontend') {
-      setSelections({ frontend: choiceValue, backend: null, database: null });
+      const newSelections = { frontend: choiceValue, backend: null, database: null };
+      setSelections(newSelections);
       setSelectedIndex(0);
       setStep('backend');
+      onSelectionChange?.(newSelections);
     } else if (step === 'backend') {
-      setSelections((prev) => ({ ...prev, backend: choiceValue, database: null }));
+      const newSelections = { ...selections, backend: choiceValue, database: null };
+      setSelections(newSelections);
       setSelectedIndex(0);
       setStep('database');
+      onSelectionChange?.(newSelections);
     } else {
       const finalSelections = { ...selections, database: choiceValue };
       setSelections(finalSelections);
+      onSelectionChange?.(finalSelections);
       onComplete(finalSelections);
     }
   };
@@ -51,46 +60,74 @@ export function SelectScreen({ onComplete, onCancel }) {
   });
 
   const choices = step === 'frontend' ? frontendChoices : step === 'backend' ? backendChoices : databaseChoices;
+  const currentStep = step === 'frontend' ? 1 : step === 'backend' ? 2 : 3;
 
+  // Get question text based on step
+  const getQuestion = () => {
+    switch (step) {
+      case 'frontend':
+        return 'Select Frontend Framework';
+      case 'backend':
+        return 'Select Backend Framework';
+      case 'database':
+        return 'Select Database';
+      default:
+        return 'Select Option';
+    }
+  };
+
+  // Render choice items
   const choiceElements = choices.map((choice, idx) => {
     const isSelected = idx === selectedIndex;
     const displayName = getChoiceName(choice);
-    const prefix = isSelected ? '❯ ' : '  ';
-    const color = isSelected ? 'cyan' : 'white';
-    const bold = isSelected;
-
+    
     return React.createElement(
-      Text,
-      { key: idx, color, bold },
-      `${prefix}${idx + 1}. ${displayName}`
+      Box,
+      { key: idx, flexDirection: 'row', marginY: 0 },
+      React.createElement(
+        Text,
+        { color: isSelected ? colors.primary : colors.muted },
+        isSelected ? '  ❯ ' : '    '
+      ),
+      React.createElement(
+        Text,
+        { 
+          color: isSelected ? colors.primary : colors.text,
+          bold: isSelected,
+        },
+        displayName
+      )
     );
   });
 
   return React.createElement(
     Box,
-    { flexDirection: 'column', padding: 1 },
+    { flexDirection: 'column', width: '100%' },
+    // Step indicator
     React.createElement(
       Box,
       { marginBottom: 1 },
       React.createElement(
         Text,
-        { bold: true, color: 'cyan' },
-        `Step ${step === 'frontend' ? '1' : step === 'backend' ? '2' : '3'} of 3: Select ${step.toUpperCase()}`
+        { color: colors.muted },
+        `Step ${currentStep}/3`
       )
     ),
+    // Question header
     React.createElement(
       Box,
-      { marginBottom: 1, flexDirection: 'column' },
-      choiceElements
-    ),
-    React.createElement(
-      Box,
-      { marginTop: 1 },
+      { marginBottom: 1 },
       React.createElement(
         Text,
-        { dimColor: true },
-        '↑/↓ Navigate • Enter Select • Q Quit'
+        { color: colors.secondary, bold: true },
+        `? ${getQuestion()}`
       )
+    ),
+    // Choice list
+    React.createElement(
+      Box,
+      { flexDirection: 'column' },
+      choiceElements
     )
   );
 }

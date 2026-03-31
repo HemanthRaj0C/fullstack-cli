@@ -1,7 +1,17 @@
 import React, { useMemo } from 'react';
 import { Box, Text } from 'ink';
+import { colors } from '../theme.js';
 
-export function LogPanel({ logs, maxHeight = 10, phase = null, noBorder = false, title = null }) {
+/**
+ * LogPanel - Clean log output panel
+ */
+export function LogPanel({ 
+  logs, 
+  maxHeight = 10, 
+  phase = null, 
+  noBorder = false, 
+  title = null,
+}) {
   const filteredLogs = useMemo(() => {
     if (!phase) return logs;
     return logs.filter(log => log.phase === phase);
@@ -12,71 +22,101 @@ export function LogPanel({ logs, maxHeight = 10, phase = null, noBorder = false,
   }, [filteredLogs, maxHeight]);
 
   const getPhaseLabel = () => {
-    if (title) {
-      return title;
-    }
-
+    if (title) return title;
     switch (phase) {
-      case 'frontend':
-        return 'Frontend Logs';
-      case 'backend':
-        return 'Backend Logs';
-      default:
-        return 'Output Logs';
+      case 'frontend': return 'Frontend';
+      case 'backend': return 'Backend';
+      default: return 'Output';
     }
   };
 
+  const getColorForType = (type) => {
+    switch (type) {
+      case 'error': return colors.error;
+      case 'success': return colors.success;
+      case 'warning': return colors.warning;
+      default: return colors.text;
+    }
+  };
+
+  const getIconForType = (type) => {
+    switch (type) {
+      case 'error': return '✗';
+      case 'success': return '✓';
+      case 'warning': return '!';
+      default: return '▸';
+    }
+  };
+
+  // Title
+  const titleElement = React.createElement(
+    Box,
+    { marginBottom: 1 },
+    React.createElement(
+      Text,
+      { color: colors.secondary, bold: true },
+      getPhaseLabel()
+    ),
+    React.createElement(
+      Text,
+      { color: colors.muted, marginLeft: 1 },
+      `(${filteredLogs.length})`
+    )
+  );
+
+  // Empty state
   if (filteredLogs.length === 0) {
     return React.createElement(
       Box,
       {
         flexDirection: 'column',
         borderStyle: noBorder ? undefined : 'single',
-        borderColor: 'cyan',
-        padding: noBorder ? 0 : 1
+        borderColor: colors.muted,
+        paddingX: noBorder ? 0 : 1,
+        paddingY: noBorder ? 0 : 1,
       },
-      React.createElement(Text, { bold: true, color: 'cyan' }, getPhaseLabel()),
-      React.createElement(Text, { dimColor: true }, 'Waiting for output...')
+      titleElement,
+      React.createElement(Text, { color: colors.muted, dimColor: true }, 'Waiting...')
     );
   }
 
-  const getColorForType = (type) => {
-    switch (type) {
-      case 'error':
-        return 'red';
-      case 'success':
-        return 'green';
-      case 'warning':
-        return 'yellow';
-      case 'info':
-      default:
-        return 'white';
-    }
-  };
+  // Render log entries
+  const logElements = visibleLogs.map((log, idx) => {
+    const icon = getIconForType(log.type);
+    const color = getColorForType(log.type);
+    
+    return React.createElement(
+      Box,
+      { key: idx, flexDirection: 'row' },
+      React.createElement(Text, { color }, `${icon} `),
+      React.createElement(Text, { color, wrap: 'truncate' }, log.message)
+    );
+  });
 
-  const logElements = visibleLogs.map((log, idx) =>
-    React.createElement(
-      Text, 
-      { key: idx, color: getColorForType(log.type) }, 
-      `  ${log.message}`
-    )
-  );
-
-  const moreLogsText =
-    filteredLogs.length > maxHeight
-      ? React.createElement(Text, { dimColor: true, marginTop: 0 }, `… and ${filteredLogs.length - maxHeight} more lines`)
-      : null;
+  // "More lines" indicator
+  const moreIndicator = filteredLogs.length > maxHeight
+    ? React.createElement(
+        Text, 
+        { color: colors.muted, dimColor: true }, 
+        `  ... ${filteredLogs.length - maxHeight} more`
+      )
+    : null;
 
   return React.createElement(
     Box,
     {
       flexDirection: 'column',
       borderStyle: noBorder ? undefined : 'single',
-      borderColor: 'cyan',
-      padding: noBorder ? 0 : 1,
+      borderColor: colors.primary,
+      paddingX: noBorder ? 0 : 1,
+      paddingY: noBorder ? 0 : 1,
     },
-    React.createElement(Text, { bold: true, color: 'cyan' }, `${getPhaseLabel()} (${filteredLogs.length} total)`),
-    React.createElement(Box, { flexDirection: 'column', marginTop: 1 }, logElements),
-    moreLogsText
+    titleElement,
+    React.createElement(
+      Box,
+      { flexDirection: 'column' },
+      logElements
+    ),
+    moreIndicator
   );
 }
