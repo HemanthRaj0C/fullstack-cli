@@ -53,8 +53,12 @@ export async function generateFrontend(answers, projectPath) {
   const { frontend } = answers;
   const backendHealthUrl = answers.backend === 'nextjs-api' ? '/api/health' : 'http://localhost:5000/api/health';
   const logger = createScopedLogger(answers.__log, 'frontend');
+  const tuiMode = isTuiMode();
 
-  logger(`\n${chalk.cyan('◯')} ${chalk.bold('Frontend')} ${chalk.dim('· Setting up')} ${chalk.white(frontend)}`);
+  // Only show styled header in non-TUI mode
+  if (!tuiMode) {
+    logger(`\n${chalk.cyan('◯')} ${chalk.bold('Frontend')} ${chalk.dim('· Setting up')} ${chalk.white(frontend)}`);
+  }
 
   switch (frontend) {
     case 'nextjs':
@@ -72,7 +76,10 @@ export async function generateFrontend(answers, projectPath) {
 }
 
 async function generateNextJS(answers, projectPath, backendHealthUrl, logger) {
-  logger(chalk.gray('  › Running create-next-app in non-interactive mode...\n'));
+  const tuiMode = isTuiMode();
+  if (!tuiMode) {
+    logger(chalk.gray('  › Running create-next-app in non-interactive mode...\n'));
+  }
   
   try {
     await runFrameworkScaffold(
@@ -82,7 +89,9 @@ async function generateNextJS(answers, projectPath, backendHealthUrl, logger) {
       logger
     );
 
-    logger(`\n  ${chalk.green('✔')} ${chalk.dim('Next.js project created')}\n`);
+    if (!tuiMode) {
+      logger(`\n  ${chalk.green('✔')} ${chalk.dim('Next.js project created')}\n`);
+    }
 
     // Detect if TypeScript was chosen
     const frontendPath = path.join(projectPath, 'frontend');
@@ -99,7 +108,10 @@ async function generateNextJS(answers, projectPath, backendHealthUrl, logger) {
 }
 
 async function generateReactVite(answers, projectPath, backendHealthUrl, logger) {
-  logger(chalk.gray('  › Running create-vite in non-interactive mode...\n'));
+  const tuiMode = isTuiMode();
+  if (!tuiMode) {
+    logger(chalk.gray('  › Running create-vite in non-interactive mode...\n'));
+  }
   
   try {
     await runFrameworkScaffold(
@@ -109,7 +121,9 @@ async function generateReactVite(answers, projectPath, backendHealthUrl, logger)
       logger
     );
 
-    logger(`\n  ${chalk.green('✔')} ${chalk.dim('React + Vite project created')}\n`);
+    if (!tuiMode) {
+      logger(`\n  ${chalk.green('✔')} ${chalk.dim('React + Vite project created')}\n`);
+    }
 
     // Detect if TypeScript was chosen
     const frontendPath = path.join(projectPath, 'frontend');
@@ -125,7 +139,10 @@ async function generateReactVite(answers, projectPath, backendHealthUrl, logger)
 }
 
 async function generateSvelte(answers, projectPath, backendHealthUrl, logger) {
-  logger(chalk.gray('  › Running Svelte scaffold with compatibility fallbacks...\n'));
+  const tuiMode = isTuiMode();
+  if (!tuiMode) {
+    logger(chalk.gray('  › Running Svelte scaffold with compatibility fallbacks...\n'));
+  }
   
   try {
     await runFrameworkScaffold(
@@ -135,7 +152,9 @@ async function generateSvelte(answers, projectPath, backendHealthUrl, logger) {
       logger
     );
 
-    logger(`\n  ${chalk.green('✔')} ${chalk.dim('SvelteKit project created')}\n`);
+    if (!tuiMode) {
+      logger(`\n  ${chalk.green('✔')} ${chalk.dim('SvelteKit project created')}\n`);
+    }
 
     // Detect if TypeScript was chosen
     const frontendPath = path.join(projectPath, 'frontend');
@@ -154,6 +173,7 @@ async function generateSvelte(answers, projectPath, backendHealthUrl, logger) {
 async function runScaffoldCommand(label, command, args, cwd, logger) {
   let combinedOutput = '';
   let detectedUnexpectedDevServer = false;
+  const tuiMode = isTuiMode();
 
   const subprocess = execa(command, args, {
     cwd,
@@ -170,9 +190,25 @@ async function runScaffoldCommand(label, command, args, cwd, logger) {
     subprocess.all.on('data', (chunk) => {
       const text = chunk.toString();
       combinedOutput += text;
-      if (logger) {
-        logger(text);
-      } else {
+      
+      // In TUI mode, only log meaningful lines (not every npm output)
+      if (tuiMode && logger) {
+        // Filter to only show important lines
+        const lines = text.split('\n').filter(line => {
+          const trimmed = line.trim();
+          if (!trimmed) return false;
+          // Skip npm progress spinners and warnings
+          if (trimmed.match(/^[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]/)) return false;
+          if (trimmed.match(/^npm warn/i)) return false;
+          if (trimmed.match(/^npm notice/i)) return false;
+          // Show errors
+          if (trimmed.match(/error/i)) return true;
+          // Show key progress messages
+          if (trimmed.match(/creating|success|done|installed|complete/i)) return true;
+          return false;
+        });
+        lines.forEach(line => logger(line.trim(), 'info'));
+      } else if (!tuiMode) {
         process.stdout.write(text);
       }
 
@@ -248,12 +284,13 @@ async function ensureFrontendDependencies(frontendPath, logger) {
   }
 
   const scopedLogger = logger || createScopedLogger(null, 'frontend');
+  const tuiMode = isTuiMode();
 
-  if (isTuiMode()) {
-    scopedLogger('  > Installing frontend dependencies...');
+  if (tuiMode) {
+    scopedLogger('Installing frontend dependencies...', 'info');
   }
 
-  const spinner = isTuiMode()
+  const spinner = tuiMode
     ? null
     : ora({ text: 'Installing frontend dependencies...', color: 'cyan' }).start();
 
@@ -269,14 +306,10 @@ async function ensureFrontendDependencies(frontendPath, logger) {
       }
     });
 
-    if (subprocess.all) {
+    // In TUI mode, don't stream all output - just wait for completion
+    if (!tuiMode && subprocess.all) {
       subprocess.all.on('data', (chunk) => {
-        const text = chunk.toString();
-        if (isTuiMode()) {
-          scopedLogger(text);
-        } else {
-          process.stdout.write(text);
-        }
+        process.stdout.write(chunk.toString());
       });
     }
 
@@ -284,8 +317,8 @@ async function ensureFrontendDependencies(frontendPath, logger) {
 
     if (spinner) {
       spinner.succeed(chalk.dim('Frontend dependencies installed'));
-    } else {
-      scopedLogger('  > Frontend dependencies installed');
+    } else if (tuiMode) {
+      scopedLogger('Frontend dependencies installed', 'success');
     }
   } catch (error) {
     if (spinner) {

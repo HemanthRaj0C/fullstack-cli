@@ -4,10 +4,16 @@ import { Command } from 'commander';
 import chalk from 'chalk';
 import figlet from 'figlet';
 import { createProject } from './commands/create.js';
-import { fullscreen } from './ui/fullscreen-ink.js';
+import { fullscreen } from './ui/blessed/index.js';
 
 const program = new Command();
 const isTuiMode = process.argv.includes('--tui');
+
+// If --tui is passed directly (without 'create' command), launch TUI
+if (isTuiMode && !process.argv.includes('create')) {
+  await fullscreen();
+  process.exit(0);
+}
 
 if (!isTuiMode) {
   // Display banner
@@ -22,7 +28,8 @@ if (!isTuiMode) {
 program
   .name('create-fs-cli')
   .description('CLI to scaffold full-stack applications')
-  .version('1.0.0');
+  .version('1.0.0')
+  .option('--tui', 'Launch fullscreen TUI wizard');
 
 program
   .command('create')
@@ -38,9 +45,14 @@ program
     await createProject(projectName);
   });
 
-// Default to create command if no command specified
-if (process.argv.length === 2) {
-  createProject();
-} else {
-  program.parse();
-}
+// Handle top-level --tui option
+program.action(async (options) => {
+  if (options.tui) {
+    await fullscreen();
+    return;
+  }
+  // Default to create command if no command specified
+  await createProject();
+});
+
+program.parse();

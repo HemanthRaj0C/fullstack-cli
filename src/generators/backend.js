@@ -25,7 +25,10 @@ export async function generateBackend(answers, projectPath) {
   const logger = createScopedLogger(answers.__log, 'backend');
   const tuiMode = isTuiMode();
   
-  logger(`\n${chalk.cyan('◯')} ${chalk.bold('Backend')} ${chalk.dim('· Setting up')} ${chalk.white(backend)}`);
+  // Only show styled header in non-TUI mode
+  if (!tuiMode) {
+    logger(`\n${chalk.cyan('◯')} ${chalk.bold('Backend')} ${chalk.dim('· Setting up')} ${chalk.white(backend)}`);
+  }
   
   const spinner = tuiMode ? null : ora({ text: 'Initializing...', color: 'cyan' }).start();
 
@@ -81,9 +84,13 @@ export async function generateBackend(answers, projectPath) {
       if (spinner) {
         spinner.succeed(chalk.dim('Backend ready'));
       } else {
-        logger(`  ${chalk.green('✔')} ${chalk.dim('Backend ready')}`);
+        logger('Backend ready', 'success');
       }
-      logger(`  ${chalk.yellow('⚠')} ${chalk.dim('Run: cd backend && pip install -r requirements.txt')}\n`);
+      if (!tuiMode) {
+        logger(`  ${chalk.yellow('⚠')} ${chalk.dim('Run: cd backend && pip install -r requirements.txt')}\n`);
+      } else {
+        logger('Run: cd backend && pip install -r requirements.txt', 'warning');
+      }
     } else {
       // For Node.js backends, auto-install
       const subprocess = execa('npm', ['install'], {
@@ -91,14 +98,10 @@ export async function generateBackend(answers, projectPath) {
         all: true
       });
 
-      if (subprocess.all) {
+      // In TUI mode, don't stream all npm output
+      if (!tuiMode && subprocess.all) {
         subprocess.all.on('data', (chunk) => {
-          const text = chunk.toString();
-          if (tuiMode) {
-            logger(text);
-          } else {
-            process.stdout.write(text);
-          }
+          process.stdout.write(chunk.toString());
         });
       }
 
@@ -107,7 +110,7 @@ export async function generateBackend(answers, projectPath) {
       if (spinner) {
         spinner.succeed(chalk.dim('Backend ready (dependencies installed)'));
       } else {
-        logger(`  ${chalk.green('✔')} ${chalk.dim('Backend ready (dependencies installed)')}`);
+        logger('Backend dependencies installed', 'success');
       }
     }
 
