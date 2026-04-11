@@ -6,58 +6,60 @@ import figlet from 'figlet';
 import gradient from 'gradient-string';
 import { createProject } from './commands/create.js';
 import { fullscreen } from './ui/blessed/index.js';
-import { installNonTuiTerminalGuards } from './utils/terminal.js';
+import { installNonTuiTerminalGuards, restoreTerminalState } from './utils/terminal.js';
 
 const program = new Command();
 const isTuiMode = process.argv.includes('--tui');
 
-// If --tui is passed directly (without 'create' command), launch TUI immediately
-// The project name is now captured as step 1 inside the TUI wizard (no pre-prompt)
-if (isTuiMode && !process.argv.includes('create')) {
-  await fullscreen();
-  process.exit(0);
-}
-
-// btop-inspired red gradient
-const btopGradient = gradient(['#ff3333', '#cc0000']);
-
-if (!isTuiMode) {
-  installNonTuiTerminalGuards(() => {
-    console.log(`\n${chalk.dim('Interrupted. Exiting...')}`);
-  });
-
-  // Premium gradient banner
-  const bannerText = figlet.textSync('fs-cli', {
-    font: 'ANSI Shadow',
-    horizontalLayout: 'fitted',
-  });
-  console.log('');
-  console.log(btopGradient(bannerText));
-  console.log(
-    chalk.dim('  ─────────────────────────────────────────────────────────')
-  );
-  console.log(
-    `  ${chalk.red('▸')} ${chalk.white.bold('Fullstack scaffolding')} ${chalk.dim('·')} ${chalk.gray('Scaffolding so fast, it feels illegal.')}`
-  );
-  console.log(
-    `  ${chalk.dim('  Run with')} ${chalk.red('--tui')} ${chalk.dim('for the fullscreen experience')}`
-  );
-  console.log(
-    chalk.dim('  ─────────────────────────────────────────────────────────\n')
-  );
-}
-
 program
   .name('create-fs-cli')
-  .description('CLI to scaffold full-stack applications')
-  .version('1.0.0')
-  .option('--tui', 'Launch fullscreen TUI wizard');
+  .description('Scaffold full-stack applications in classic prompts or fullscreen TUI mode')
+  .version('1.1.1')
+  .showHelpAfterError()
+  .argument('[project-name]', 'Project name (same validation as interactive mode)')
+  .option('--tui', 'Launch the fullscreen TUI wizard')
+  .addHelpText(
+    'after',
+    `
+Quick Start:
+  npx create-fs-cli@latest
+  npx create-fs-cli@latest my-app
+  npx create-fs-cli@latest my-app --tui
+  npx create-fs-cli@latest create --tui
 
-program
+Global Install:
+  npm install -g create-fs-cli
+  create-fs-cli --help
+  create-fs-cli my-app
+  create-fs-cli my-app --tui
+  create-fs-cli create my-app --tui
+
+Local Development:
+  npm install
+  node src/index.js --help
+  node src/index.js
+  node src/index.js my-app
+  node src/index.js my-app --tui
+  node src/index.js create my-app --tui
+
+Project Name Rules:
+  Allowed: letters, numbers, dashes (-), underscores (_)
+  Must start with: a letter or number
+  Max length: 50
+  Direct CLI args are auto-sanitized when possible (for example "My App" -> "My-App")
+
+Note:
+  The "create" subcommand is optional; both forms work:
+  create-fs-cli my-app
+  create-fs-cli create my-app
+`
+  );
+
+const createCommand = program
   .command('create')
-  .description('Create a new full-stack project')
+  .description('Create a new full-stack project (explicit subcommand)')
   .argument('[project-name]', 'Name of the project')
-  .option('--tui', 'Launch fullscreen TUI wizard')
+  .option('--tui', 'Launch the fullscreen TUI wizard')
   .action(async (projectName, commandOptions) => {
     if (commandOptions.tui) {
       // Launch TUI — project name step is inside the TUI now
@@ -69,14 +71,69 @@ program
     await createProject(projectName);
   });
 
+createCommand.addHelpText(
+  'after',
+  `
+Examples:
+  create-fs-cli create
+  create-fs-cli create my-app
+  create-fs-cli create my-app --tui
+  node src/index.js create my-app --tui
+`
+);
+
 // Handle top-level --tui option (when user runs `create-fs-cli --tui`)
-program.action(async (options) => {
+program.action(async (projectName, options) => {
   if (options.tui) {
-    await fullscreen();
+    await fullscreen({ initialProjectName: projectName });
     return;
   }
   // Default to create command if no command specified
-  await createProject();
+  await createProject(projectName);
 });
 
-await program.parseAsync(process.argv);
+async function main() {
+  // btop-inspired red gradient
+  const btopGradient = gradient(['#ff3333', '#cc0000']);
+
+  if (!isTuiMode) {
+    installNonTuiTerminalGuards(() => {
+      console.log(`\n${chalk.dim('Interrupted. Exiting...')}`);
+    });
+
+    // Premium gradient banner
+    const bannerText = figlet.textSync('fs-cli', {
+      font: 'ANSI Shadow',
+      horizontalLayout: 'fitted',
+    });
+    console.log('');
+    console.log(btopGradient(bannerText));
+    console.log(
+      chalk.dim('  ─────────────────────────────────────────────────────────')
+    );
+    console.log(
+      `  ${chalk.red('▸')} ${chalk.white.bold('Fullstack scaffolding')} ${chalk.dim('·')} ${chalk.gray('Scaffolding so fast, it feels illegal.')}`
+    );
+    console.log(
+      `  ${chalk.dim('  Run with')} ${chalk.red('--tui')} ${chalk.dim('for the fullscreen experience')}`
+    );
+    console.log(
+      chalk.dim('  ─────────────────────────────────────────────────────────\n')
+    );
+  }
+
+  await program.parseAsync(process.argv);
+}
+
+void main().catch((error) => {
+  restoreTerminalState();
+
+  if (error?.name === 'ExitPromptError') {
+    console.log(`\n${chalk.dim('Interrupted. Exiting...')}`);
+    process.exit(130);
+  }
+
+  const message = error?.message || String(error);
+  console.error(`\n${chalk.red('Unhandled error:')} ${message}\n`);
+  process.exit(1);
+});

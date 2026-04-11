@@ -9,6 +9,12 @@ import { execa } from 'execa';
 import { generateFrontend } from '../generators/frontend.js';
 import { generateBackend } from '../generators/backend.js';
 import { showSuccessMessage } from '../utils/messages.js';
+import {
+  PROJECT_NAME_ALLOWED_TEXT,
+  PROJECT_NAME_MAX_LENGTH,
+  resolveProjectNameInput,
+  validateProjectName
+} from '../utils/projectName.js';
 import { restoreTerminalState } from '../utils/terminal.js';
 import {
   getFrontendChoices,
@@ -63,7 +69,7 @@ export async function createProject(projectName, options = {}) {
     console.log(`\n  ${chalk.red('▸')} ${chalk.white.bold('Configure Your Stack')}`);
     console.log(chalk.dim(`  ${'─'.repeat(22)}`));
 
-    let providedProjectName = projectName;
+    let providedProjectName = projectName || options.answers?.projectName;
     
     // Build project name prompt
     if (!providedProjectName) {
@@ -75,8 +81,10 @@ export async function createProject(projectName, options = {}) {
           prefix: chalk.red(ICONS.pointer),
           default: 'my-fullstack-app',
           validate: (input) => {
-            if (!/^[a-zA-Z0-9_-]+$/.test(input)) {
-              return chalk.red('Only letters, numbers, dashes, and underscores (no spaces)');
+            const result = validateProjectName(input);
+            if (!result.valid) {
+              const suggestion = result.suggestion ? ` Try: ${result.suggestion}` : '';
+              return chalk.red(`${result.reason}${suggestion}`);
             }
             return true;
           },
@@ -85,6 +93,27 @@ export async function createProject(projectName, options = {}) {
       ]);
       providedProjectName = namePrompt.projectName;
     }
+
+    const projectNameResolution = resolveProjectNameInput(providedProjectName, {
+      autoSanitize: Boolean(projectName)
+    });
+
+    if (!projectNameResolution.ok) {
+      const suggestion = projectNameResolution.suggestion
+        ? ` Suggested: ${chalk.white.bold(projectNameResolution.suggestion)}`
+        : '';
+      throw new Error(
+        `${projectNameResolution.reason} Allowed: ${PROJECT_NAME_ALLOWED_TEXT}. Max length: ${PROJECT_NAME_MAX_LENGTH}.${suggestion}`
+      );
+    }
+
+    if (projectNameResolution.wasSanitized) {
+      console.log(
+        `  ${chalk.red(ICONS.warn)} ${chalk.bold('Name sanitized')} ${chalk.dim(ICONS.dot)} ${chalk.dim(projectNameResolution.original)} ${chalk.dim('->')} ${chalk.white.bold(projectNameResolution.value)}`
+      );
+    }
+
+    providedProjectName = projectNameResolution.value;
     
     // Directory check IMMEDIATELY after knowing project name
     projectPath = path.join(process.cwd(), providedProjectName);
@@ -151,7 +180,7 @@ export async function createProject(projectName, options = {}) {
     ];
 
     const stackAnswers = options.answers ? { ...options.answers } : await inquirer.prompt(prompts);
-    const answers = { projectName: providedProjectName, ...stackAnswers };
+    const answers = { ...stackAnswers, projectName: providedProjectName };
 
     if (!options.answers) {
       console.log(); // Add spacing after prompts
