@@ -5,7 +5,7 @@ import ora from 'ora';
 
 export async function injectBackendStatus(frontendPath, framework, isTypeScript, isIntegrated, backendUrl) {
   const tuiMode = process.env.CREATE_FS_TUI === '1';
-  const spinner = tuiMode ? null : ora({ text: 'Adding BackendStatus component...', color: 'cyan' }).start();
+  const spinner = tuiMode ? null : ora({ text: 'Adding BackendStatus component...', color: 'red' }).start();
 
   try {
     switch (framework) {
@@ -24,7 +24,7 @@ export async function injectBackendStatus(frontendPath, framework, isTypeScript,
     }
   } catch (error) {
     if (spinner) {
-      spinner.warn(chalk.yellow(`Could not auto-inject BackendStatus: ${error.message}`));
+      spinner.warn(chalk.red(`Could not auto-inject BackendStatus: ${error.message}`));
     }
   }
 }
@@ -104,9 +104,9 @@ export default function BackendStatus() {
   }, [])
   
   const colors: Record<Status, string> = {
-    checking: '#fbbf24',
-    connected: '#22c55e',
-    disconnected: '#ef4444'
+    checking: '#ff8a8a',
+    connected: '#ff4d4d',
+    disconnected: '#ff0000'
   }
   
   const labels: Record<Status, string> = {
@@ -197,9 +197,9 @@ export default function BackendStatus() {
   }, [])
   
   const colors = {
-    checking: '#fbbf24',
-    connected: '#22c55e',
-    disconnected: '#ef4444'
+    checking: '#ff8a8a',
+    connected: '#ff4d4d',
+    disconnected: '#ff0000'
   }
   
   const labels = {
@@ -349,9 +349,9 @@ export default function BackendStatus() {
   }, [])
   
   const colors: Record<Status, string> = {
-    checking: '#fbbf24',
-    connected: '#22c55e',
-    disconnected: '#ef4444'
+    checking: '#ff8a8a',
+    connected: '#ff4d4d',
+    disconnected: '#ff0000'
   }
   
   const labels: Record<Status, string> = {
@@ -439,9 +439,9 @@ export default function BackendStatus() {
   }, [])
   
   const colors = {
-    checking: '#fbbf24',
-    connected: '#22c55e',
-    disconnected: '#ef4444'
+    checking: '#ff8a8a',
+    connected: '#ff4d4d',
+    disconnected: '#ff0000'
   }
   
   const labels = {
@@ -565,9 +565,9 @@ function getSvelteBackendStatusCode(backendUrl) {
   let interval;
   
   const colors = {
-    checking: '#fbbf24',
-    connected: '#22c55e',
-    disconnected: '#ef4444'
+    checking: '#ff8a8a',
+    connected: '#ff4d4d',
+    disconnected: '#ff0000'
   };
   
   const labels = {

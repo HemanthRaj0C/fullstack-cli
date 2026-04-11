@@ -29,8 +29,8 @@ export function createBox(options = {}) {
  */
 export function createHeader(parent, title, subtitle = '') {
   const content = subtitle 
-    ? `{cyan-fg}{bold}${title}{/bold}{/cyan-fg} {gray-fg}:: ${subtitle}{/gray-fg}`
-    : `{cyan-fg}{bold}${title}{/bold}{/cyan-fg}`;
+    ? `{white-fg}{bold}${title}{/bold}{/white-fg} {gray-fg}:: ${subtitle}{/gray-fg}`
+    : `{white-fg}{bold}${title}{/bold}{/white-fg}`;
 
   return blessed.box({
     parent,
@@ -54,7 +54,7 @@ export function createHeader(parent, title, subtitle = '') {
  */
 export function createFooter(parent, keys = []) {
   const content = keys.map(k => 
-    `{green-fg}{bold} ${k.key} {/bold}{/green-fg}{gray-fg}${k.action}{/gray-fg}`
+    `{white-fg}{bold} ${k.key} {/bold}{/white-fg}{gray-fg}${k.action}{/gray-fg}`
   ).join('  ');
 
   return blessed.box({

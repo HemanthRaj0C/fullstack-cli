@@ -40,11 +40,11 @@ const FRONTEND_SCAFFOLD_ATTEMPTS = {
   svelte: [
     {
       command: 'npx',
-      args: ['--yes', 'sv@latest', 'create', 'frontend', '--template', 'minimal', '--types', 'js', '--no-install', '--no-interactive']
+      args: ['--yes', 'sv@latest', 'create', 'frontend', '--template', 'minimal', '--types', 'jsdoc', '--no-install', '--no-add-ons', '--no-dir-check', '--no-download-check']
     },
     {
       command: 'npx',
-      args: ['--yes', 'sv@latest', 'create', 'frontend', '--template', 'minimal', '--types', 'js', '--no-install']
+      args: ['--yes', 'sv@latest', 'create', 'frontend', '--template', 'minimal', '--types', 'jsdoc', '--no-install', '--no-add-ons']
     }
   ]
 };
@@ -55,9 +55,8 @@ export async function generateFrontend(answers, projectPath) {
   const logger = createScopedLogger(answers.__log, 'frontend');
   const tuiMode = isTuiMode();
 
-  // Only show styled header in non-TUI mode
   if (!tuiMode) {
-    logger(`\n${chalk.cyan('◯')} ${chalk.bold('Frontend')} ${chalk.dim('· Setting up')} ${chalk.white(frontend)}`);
+    logger(`  ${chalk.dim('›')} ${chalk.dim('Setting up')} ${chalk.white(frontend)}`);
   }
 
   switch (frontend) {
@@ -90,7 +89,7 @@ async function generateNextJS(answers, projectPath, backendHealthUrl, logger) {
     );
 
     if (!tuiMode) {
-      logger(`\n  ${chalk.green('✔')} ${chalk.dim('Next.js project created')}\n`);
+      logger(`  ${chalk.red('✔')} ${chalk.dim('Next.js project created')}`);
     }
 
     // Detect if TypeScript was chosen
@@ -122,7 +121,7 @@ async function generateReactVite(answers, projectPath, backendHealthUrl, logger)
     );
 
     if (!tuiMode) {
-      logger(`\n  ${chalk.green('✔')} ${chalk.dim('React + Vite project created')}\n`);
+      logger(`  ${chalk.red('✔')} ${chalk.dim('React + Vite project created')}`);
     }
 
     // Detect if TypeScript was chosen
@@ -153,7 +152,7 @@ async function generateSvelte(answers, projectPath, backendHealthUrl, logger) {
     );
 
     if (!tuiMode) {
-      logger(`\n  ${chalk.green('✔')} ${chalk.dim('SvelteKit project created')}\n`);
+      logger(`  ${chalk.red('✔')} ${chalk.dim('SvelteKit project created')}`);
     }
 
     // Detect if TypeScript was chosen
@@ -191,9 +190,8 @@ async function runScaffoldCommand(label, command, args, cwd, logger) {
       const text = chunk.toString();
       combinedOutput += text;
       
-      // In TUI mode, only log meaningful lines (not every npm output)
+      // In TUI mode, only log meaningful lines
       if (tuiMode && logger) {
-        // Filter to only show important lines
         const lines = text.split('\n').filter(line => {
           const trimmed = line.trim();
           if (!trimmed) return false;
@@ -201,15 +199,13 @@ async function runScaffoldCommand(label, command, args, cwd, logger) {
           if (trimmed.match(/^[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]/)) return false;
           if (trimmed.match(/^npm warn/i)) return false;
           if (trimmed.match(/^npm notice/i)) return false;
-          // Show errors
           if (trimmed.match(/error/i)) return true;
-          // Show key progress messages
           if (trimmed.match(/creating|success|done|installed|complete/i)) return true;
           return false;
         });
         lines.forEach(line => logger(line.trim(), 'info'));
       } else if (!tuiMode) {
-        process.stdout.write(text);
+        // Output completely suppressed in non-TUI mode to let the animated spinner run cleanly
       }
 
       if (!detectedUnexpectedDevServer && hasUnexpectedDevServerOutput(text)) {
@@ -248,8 +244,13 @@ function hasUnexpectedDevServerOutput(output) {
 
 async function runFrameworkScaffold(label, attempts, projectPath, logger) {
   const errors = [];
+  const frontendPath = path.join(projectPath, 'frontend');
 
   for (const attempt of attempts) {
+    if (await fs.pathExists(frontendPath)) {
+      await fs.remove(frontendPath);
+    }
+
     try {
       await runScaffoldCommand(label, attempt.command, attempt.args, projectPath, logger);
       return;
@@ -279,12 +280,17 @@ async function detectViteTypeScript(frontendPath) {
 
 async function ensureFrontendDependencies(frontendPath, logger) {
   const nodeModulesPath = path.join(frontendPath, 'node_modules');
-  if (await fs.pathExists(nodeModulesPath)) {
-    return;
-  }
-
   const scopedLogger = logger || createScopedLogger(null, 'frontend');
   const tuiMode = isTuiMode();
+
+  if (await fs.pathExists(nodeModulesPath)) {
+    if (tuiMode) {
+      scopedLogger('Frontend dependencies already installed by scaffold', 'success');
+    } else {
+      scopedLogger(`  ${chalk.red('✔')} ${chalk.dim('Frontend dependencies already installed by scaffold')}`);
+    }
+    return;
+  }
 
   if (tuiMode) {
     scopedLogger('Installing frontend dependencies...', 'info');
@@ -292,7 +298,7 @@ async function ensureFrontendDependencies(frontendPath, logger) {
 
   const spinner = tuiMode
     ? null
-    : ora({ text: 'Installing frontend dependencies...', color: 'cyan' }).start();
+    : ora({ text: 'Installing frontend dependencies...', color: 'red', spinner: 'dots', indent: 2 }).start();
 
   try {
     const subprocess = execa('npm', ['install'], {
@@ -306,12 +312,8 @@ async function ensureFrontendDependencies(frontendPath, logger) {
       }
     });
 
-    // In TUI mode, don't stream all output - just wait for completion
-    if (!tuiMode && subprocess.all) {
-      subprocess.all.on('data', (chunk) => {
-        process.stdout.write(chunk.toString());
-      });
-    }
+    // We remove the stdout streaming so the spinner remains neat and compact
+    // without dumping verbose install logs on the screen.
 
     await subprocess;
 

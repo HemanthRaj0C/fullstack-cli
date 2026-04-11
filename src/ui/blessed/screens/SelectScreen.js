@@ -5,7 +5,9 @@
  */
 
 import blessed from 'blessed';
-import { colors, appInfo, icons, labels } from '../theme.js';
+import fs from 'fs-extra';
+import path from 'path';
+import { colors, icons, labels } from '../theme.js';
 import { getScreen, render } from '../screen.js';
 import { getFrontendChoices, getBackendChoices, getDatabaseChoices } from '../../../utils/stack.js';
 
@@ -14,6 +16,10 @@ const CURSOR_FRAMES = [icons.arrow, '▹', icons.arrow, '▹'];
 
 // Fixed widths
 const SIDEBAR_WIDTH = 20;
+const RED_BRIGHT = '#ff4d4d';
+const RED_DIM = '#c24b4b';
+const RED_SOFT = '#ff8a8a';
+const WHITE = '#ffffff';
 
 /**
  * Show the selection screen
@@ -41,6 +47,8 @@ export function showSelectScreen(onComplete, onCancel, initialProjectName) {
     frontend: null,
     backend: null,
     database: null,
+    overwriteExisting: false,
+    overwriteConfirmedAt: null,
   };
   let isActive = true;
   let cursorFrame = 0;
@@ -53,6 +61,9 @@ export function showSelectScreen(onComplete, onCancel, initialProjectName) {
   // ────── project name input buffer ──────
   let nameBuffer = initialProjectName || '';
   let nameError = '';
+  let overwriteDialog = null;
+  let pendingOverwrite = null;
+  let escapeKeySuspended = false;
 
   // ================================================================
   // LAYOUT
@@ -74,7 +85,7 @@ export function showSelectScreen(onComplete, onCancel, initialProjectName) {
     left: 0,
     width: screenWidth,
     height: 3,
-    content: `{cyan-fg}{bold} ${labels.mainHeader} {/bold}{/cyan-fg}{gray-fg} :: ${labels.scaffoldWizard} {/gray-fg}`,
+    content: `{#ffffff-fg}{bold} ${labels.mainHeader} {/bold}{/#ffffff-fg}{#ff4d4d-fg}{bold} :: ${labels.scaffoldWizard} {/bold}{/#ff4d4d-fg}`,
     align: 'center',
     valign: 'middle',
     tags: true,
@@ -136,7 +147,7 @@ export function showSelectScreen(onComplete, onCancel, initialProjectName) {
     parent: middlePanel,
     top: 3,
     left: 2,
-    width: middlePanelWidth - 6,
+    width: middlePanelWidth - 4,
     height: 3,
     hidden: true,
     tags: true,
@@ -151,7 +162,7 @@ export function showSelectScreen(onComplete, onCancel, initialProjectName) {
     parent: nameInputBox,
     top: 0,
     left: 0,
-    width: middlePanelWidth - 10,
+    width: middlePanelWidth - 8,
     height: 1,
     content: '',
     tags: true,
@@ -210,6 +221,7 @@ export function showSelectScreen(onComplete, onCancel, initialProjectName) {
     width: rightPanelWidth - 4,
     height: screenHeight - 12,
     tags: true,
+    wrap: true,
     scrollable: true,
   });
 
@@ -286,6 +298,123 @@ export function showSelectScreen(onComplete, onCancel, initialProjectName) {
     return null;
   }
 
+  function ellipsize(value, maxLen) {
+    const text = String(value ?? '').replace(/\s+/g, ' ').trim();
+    if (maxLen <= 0) return '';
+    if (text.length <= maxLen) return text;
+    if (maxLen <= 3) return '.'.repeat(maxLen);
+    return text.slice(0, maxLen - 3) + '...';
+  }
+
+  function tailEllipsize(value, maxLen) {
+    const text = String(value ?? '');
+    if (maxLen <= 0) return '';
+    if (text.length <= maxLen) return text;
+    if (maxLen <= 3) return '.'.repeat(maxLen);
+    return '...' + text.slice(-(maxLen - 3));
+  }
+
+  function proceedFromProjectName(trimmed, overwriteExisting = false) {
+    pendingOverwrite = null;
+    selections.overwriteExisting = overwriteExisting;
+    selections.overwriteConfirmedAt = overwriteExisting ? Date.now() : null;
+    nameError = '';
+    nameBuffer = trimmed;
+    selections.projectName = trimmed;
+    step = 'frontend';
+    selectedIndex = 0;
+
+    // Lock transitions for a tick so the same Enter keypress
+    // can't accidentally trigger handleEnter on the new step.
+    transitionLocked = true;
+
+    // Switch from free-text input to list-navigation.
+    screen.removeListener('keypress', handleNameChar);
+    bindSelectionKeys();
+
+    updateDisplay();
+    process.nextTick(() => { transitionLocked = false; });
+  }
+
+  function closeOverwriteDialog() {
+    if (overwriteDialog) {
+      overwriteDialog.destroy();
+      overwriteDialog = null;
+    }
+    screen.unkey(['y', 'Y'], handleOverwriteConfirm);
+    screen.unkey(['enter'], handleOverwriteCancel);
+    screen.unkey(['n', 'N'], handleOverwriteCancel);
+    screen.unkey(['escape'], handleOverwriteCancel);
+    if (escapeKeySuspended) {
+      screen.key(['escape'], handleEscape);
+      escapeKeySuspended = false;
+    }
+    render();
+  }
+
+  function showOverwriteDialog(projectName) {
+    closeOverwriteDialog();
+
+    pendingOverwrite = { projectName };
+
+    const dialogWidth = Math.max(44, Math.min(68, screenWidth - 6));
+    const dialogHeight = 9;
+    const safeName = ellipsize(projectName, dialogWidth - 8);
+
+    overwriteDialog = blessed.box({
+      parent: container,
+      top: Math.floor((screenHeight - dialogHeight) / 2),
+      left: Math.floor((screenWidth - dialogWidth) / 2),
+      width: dialogWidth,
+      height: dialogHeight,
+      border: { type: 'line' },
+      style: {
+        border: { fg: colors.error },
+      },
+      tags: true,
+      padding: { left: 2, right: 2, top: 1 },
+    });
+
+    blessed.text({
+      parent: overwriteDialog,
+      top: 0,
+      left: 0,
+      width: dialogWidth - 6,
+      tags: true,
+      content:
+        `{#ff0000-fg}{bold}${icons.warning} Directory already exists{/bold}{/#ff0000-fg}\n` +
+        `{#ffffff-fg}${safeName}{/#ffffff-fg}\n\n` +
+        `{#ffffff-fg}{bold}Y{/bold}{/#ffffff-fg} {gray-fg}Overwrite{/gray-fg}   ` +
+        `{#ffffff-fg}{bold}N{/bold}{/#ffffff-fg} {gray-fg}Choose another name{/gray-fg}\n` +
+        `{gray-fg}Enter = cancel{/gray-fg}`,
+    });
+
+    screen.key(['y', 'Y'], handleOverwriteConfirm);
+    screen.key(['enter'], handleOverwriteCancel);
+    screen.key(['n', 'N'], handleOverwriteCancel);
+    screen.unkey(['escape'], handleEscape);
+    escapeKeySuspended = true;
+    screen.key(['escape'], handleOverwriteCancel);
+    render();
+  }
+
+  function handleOverwriteConfirm() {
+    if (!isActive || step !== 'projectName' || !pendingOverwrite) return;
+    const { projectName } = pendingOverwrite;
+    closeOverwriteDialog();
+    proceedFromProjectName(projectName, true);
+  }
+
+  function handleOverwriteCancel() {
+    if (!isActive || step !== 'projectName') return;
+    closeOverwriteDialog();
+    pendingOverwrite = null;
+    selections.overwriteExisting = false;
+    selections.overwriteConfirmedAt = null;
+    nameError = 'Please choose a different project name.';
+    updateDisplay();
+  }
+
   // ── Sidebar render ──────────────────────────────────────────────
   function renderSidebar() {
     const categories = [
@@ -306,30 +435,31 @@ export function showSelectScreen(onComplete, onCancel, initialProjectName) {
         (cat.id === 'database'    && selections.database);
 
       let icon = cat.icon;
-      let labelColor = 'gray';
-      let iconColor  = 'gray';
+      let labelColor = RED_DIM;
+      let iconColor  = RED_DIM;
 
       if (isCurrentStep) {
-        iconColor  = 'green';
-        labelColor = 'green';
+        iconColor  = RED_BRIGHT;
+        labelColor = WHITE;
         icon = icons.pointer;
       } else if (isDone) {
-        iconColor  = 'cyan';
-        labelColor = 'white';
+        iconColor  = RED_SOFT;
+        labelColor = WHITE;
         icon = icons.done;
       }
 
       content += `{${iconColor}-fg}${icon}{/${iconColor}-fg} {${labelColor}-fg}${cat.label}{/${labelColor}-fg}`;
 
       // Show chosen value under category
+      const sidebarValueWidth = SIDEBAR_WIDTH - 7;
       if (cat.id === 'projectName' && selections.projectName) {
-        content += `\n  {gray-fg}└{/gray-fg} {cyan-fg}${selections.projectName}{/cyan-fg}`;
+        content += `\n  {gray-fg}└{/gray-fg} {white-fg}${ellipsize(selections.projectName, sidebarValueWidth)}{/white-fg}`;
       } else if (cat.id === 'frontend' && selections.frontend) {
-        content += `\n  {gray-fg}└{/gray-fg} {cyan-fg}${getDisplayName(selections.frontend)}{/cyan-fg}`;
+        content += `\n  {gray-fg}└{/gray-fg} {white-fg}${ellipsize(getDisplayName(selections.frontend), sidebarValueWidth)}{/white-fg}`;
       } else if (cat.id === 'backend' && selections.backend) {
-        content += `\n  {gray-fg}└{/gray-fg} {cyan-fg}${getDisplayName(selections.backend)}{/cyan-fg}`;
+        content += `\n  {gray-fg}└{/gray-fg} {white-fg}${ellipsize(getDisplayName(selections.backend), sidebarValueWidth)}{/white-fg}`;
       } else if (cat.id === 'database' && selections.database) {
-        content += `\n  {gray-fg}└{/gray-fg} {cyan-fg}${getDisplayName(selections.database)}{/cyan-fg}`;
+        content += `\n  {gray-fg}└{/gray-fg} {white-fg}${ellipsize(getDisplayName(selections.database), sidebarValueWidth)}{/white-fg}`;
       }
 
       content += '\n\n';
@@ -359,15 +489,15 @@ export function showSelectScreen(onComplete, onCancel, initialProjectName) {
   // ── Name input render ───────────────────────────────────────────
   let nameCursorVisible = true;
   function renderNameInput() {
-    const displayText = nameBuffer;
-    const cursorChar = nameCursorVisible ? '{green-fg}▌{/green-fg}' : ' ';
+    const displayText = tailEllipsize(nameBuffer, Math.max(12, middlePanelWidth - 10));
+    const cursorChar = nameCursorVisible ? '{white-fg}▌{/white-fg}' : ' ';
 
     nameInputText.setContent(`{white-fg}${displayText}{/white-fg}${cursorChar}`);
 
     if (nameError) {
       nameHintLabel.setContent(`{red-fg}${icons.failed} ${nameError}{/red-fg}`);
     } else if (nameBuffer) {
-      nameHintLabel.setContent(`{gray-fg}Press {/gray-fg}{green-fg}Enter{/green-fg}{gray-fg} to confirm{/gray-fg}`);
+      nameHintLabel.setContent(`{gray-fg}Press {/gray-fg}{white-fg}Enter{/white-fg}{gray-fg} to confirm{/gray-fg}`);
     } else {
       nameHintLabel.setContent(`{gray-fg}Default: my-fullstack-app{/gray-fg}`);
     }
@@ -384,9 +514,9 @@ export function showSelectScreen(onComplete, onCancel, initialProjectName) {
       const isSelected = idx === selectedIndex;
 
       if (isSelected) {
-        content += `{green-fg}${cursor}{/green-fg} {green-fg}{bold}${name}{/bold}{/green-fg}\n`;
+        content += `{#ff4d4d-fg}${cursor}{/#ff4d4d-fg} {#ffffff-fg}{bold}${name}{/bold}{/#ffffff-fg}\n`;
       } else {
-        content += `  {white-fg}${name}{/white-fg}\n`;
+        content += `  {#c24b4b-fg}${name}{/#c24b4b-fg}\n`;
       }
     });
 
@@ -406,41 +536,42 @@ export function showSelectScreen(onComplete, onCancel, initialProjectName) {
     previewHeader.setContent('{gray-fg}// Current Stack Configuration{/gray-fg}');
 
     let content = '';
+    const previewValueWidth = Math.max(10, rightPanelWidth - 16);
 
     content += '{white-fg}{bold}STACK CONFIGURATION{/bold}{/white-fg}\n';
     content += '{gray-fg}───────────────────────{/gray-fg}\n';
 
     // Project name
-    content += `{cyan-fg}project:{/cyan-fg}   `;
+    content += `{red-fg}project:{/red-fg}   `;
     if (selections.projectName || nameBuffer) {
-      content += `{green-fg}${selections.projectName || nameBuffer}{/green-fg}\n`;
+      content += `{red-fg}${ellipsize(selections.projectName || nameBuffer, previewValueWidth)}{/red-fg}\n`;
     } else {
-      content += `{yellow-fg}<enter name>{/yellow-fg}\n`;
+      content += `{gray-fg}<enter name>{/gray-fg}\n`;
     }
 
     // Frontend
     if (effectiveFrontend) {
-      content += `{cyan-fg}frontend:{/cyan-fg}  {green-fg}${getDisplayName(effectiveFrontend)}{/green-fg}\n`;
+      content += `{red-fg}frontend:{/red-fg}  {red-fg}${ellipsize(getDisplayName(effectiveFrontend), previewValueWidth)}{/red-fg}\n`;
     } else {
-      content += `{cyan-fg}frontend:{/cyan-fg}  {gray-fg}pending...{/gray-fg}\n`;
+      content += `{red-fg}frontend:{/red-fg}  {gray-fg}pending...{/gray-fg}\n`;
     }
 
     // Backend
     if (effectiveBackend) {
-      content += `{cyan-fg}backend:{/cyan-fg}   {green-fg}${getDisplayName(effectiveBackend)}{/green-fg}\n`;
+      content += `{red-fg}backend:{/red-fg}   {red-fg}${ellipsize(getDisplayName(effectiveBackend), previewValueWidth)}{/red-fg}\n`;
     } else if (selections.frontend) {
-      content += `{cyan-fg}backend:{/cyan-fg}   {gray-fg}pending...{/gray-fg}\n`;
+      content += `{red-fg}backend:{/red-fg}   {gray-fg}pending...{/gray-fg}\n`;
     } else {
-      content += `{cyan-fg}backend:{/cyan-fg}   {gray-fg}---{/gray-fg}\n`;
+      content += `{red-fg}backend:{/red-fg}   {gray-fg}---{/gray-fg}\n`;
     }
 
     // Database
     if (effectiveDatabase) {
-      content += `{cyan-fg}database:{/cyan-fg}  {green-fg}${getDisplayName(effectiveDatabase)}{/green-fg}\n`;
+      content += `{red-fg}database:{/red-fg}  {red-fg}${ellipsize(getDisplayName(effectiveDatabase), previewValueWidth)}{/red-fg}\n`;
     } else if (selections.backend) {
-      content += `{cyan-fg}database:{/cyan-fg}  {gray-fg}pending...{/gray-fg}\n`;
+      content += `{red-fg}database:{/red-fg}  {gray-fg}pending...{/gray-fg}\n`;
     } else {
-      content += `{cyan-fg}database:{/cyan-fg}  {gray-fg}---{/gray-fg}\n`;
+      content += `{red-fg}database:{/red-fg}  {gray-fg}---{/gray-fg}\n`;
     }
 
     content += '\n';
@@ -453,34 +584,34 @@ export function showSelectScreen(onComplete, onCancel, initialProjectName) {
       content += '{gray-fg}// frontend/package.json{/gray-fg}\n';
       content += '{\n';
 
-      const pName = selections.projectName || 'my-app';
-      content += `  {cyan-fg}"name"{/cyan-fg}: {yellow-fg}"${pName}"{/yellow-fg},\n`;
-      content += `  {cyan-fg}"version"{/cyan-fg}: {yellow-fg}"0.1.0"{/yellow-fg},\n`;
-      content += `  {cyan-fg}"private"{/cyan-fg}: {magenta-fg}true{/magenta-fg},\n`;
+      const pName = ellipsize(selections.projectName || 'my-app', Math.max(8, rightPanelWidth - 18));
+      content += `  {red-fg}"name"{/red-fg}: {gray-fg}"${pName}"{/gray-fg},\n`;
+      content += `  {red-fg}"version"{/red-fg}: {gray-fg}"0.1.0"{/gray-fg},\n`;
+      content += `  {red-fg}"private"{/red-fg}: {gray-fg}true{/gray-fg},\n`;
 
       if (effectiveFrontend) {
-        content += `  {cyan-fg}"scripts"{/cyan-fg}: {\n`;
+        content += `  {red-fg}"scripts"{/red-fg}: {\n`;
         if (effectiveFrontend === 'nextjs') {
-          content += `    {cyan-fg}"dev"{/cyan-fg}: {yellow-fg}"next dev"{/yellow-fg},\n`;
-          content += `    {cyan-fg}"build"{/cyan-fg}: {yellow-fg}"next build"{/yellow-fg},\n`;
-          content += `    {cyan-fg}"start"{/cyan-fg}: {yellow-fg}"next start"{/yellow-fg}\n`;
+          content += `    {red-fg}"dev"{/red-fg}: {gray-fg}"next dev"{/gray-fg},\n`;
+          content += `    {red-fg}"build"{/red-fg}: {gray-fg}"next build"{/gray-fg},\n`;
+          content += `    {red-fg}"start"{/red-fg}: {gray-fg}"next start"{/gray-fg}\n`;
         } else if (effectiveFrontend === 'react-vite') {
-          content += `    {cyan-fg}"dev"{/cyan-fg}: {yellow-fg}"vite"{/yellow-fg},\n`;
-          content += `    {cyan-fg}"build"{/cyan-fg}: {yellow-fg}"vite build"{/yellow-fg}\n`;
+          content += `    {red-fg}"dev"{/red-fg}: {gray-fg}"vite"{/gray-fg},\n`;
+          content += `    {red-fg}"build"{/red-fg}: {gray-fg}"vite build"{/gray-fg}\n`;
         } else if (effectiveFrontend === 'svelte') {
-          content += `    {cyan-fg}"dev"{/cyan-fg}: {yellow-fg}"vite dev"{/yellow-fg},\n`;
-          content += `    {cyan-fg}"build"{/cyan-fg}: {yellow-fg}"vite build"{/yellow-fg}\n`;
+          content += `    {red-fg}"dev"{/red-fg}: {gray-fg}"vite dev"{/gray-fg},\n`;
+          content += `    {red-fg}"build"{/red-fg}: {gray-fg}"vite build"{/gray-fg}\n`;
         }
         content += `  },\n`;
-        content += `  {cyan-fg}"dependencies"{/cyan-fg}: {\n`;
+        content += `  {red-fg}"dependencies"{/red-fg}: {\n`;
         if (effectiveFrontend === 'nextjs') {
-          content += `    {cyan-fg}"next"{/cyan-fg}: {yellow-fg}"^14.0.0"{/yellow-fg},\n`;
-          content += `    {cyan-fg}"react"{/cyan-fg}: {yellow-fg}"^18.2.0"{/yellow-fg}\n`;
+          content += `    {red-fg}"next"{/red-fg}: {gray-fg}"^14.0.0"{/gray-fg},\n`;
+          content += `    {red-fg}"react"{/red-fg}: {gray-fg}"^18.2.0"{/gray-fg}\n`;
         } else if (effectiveFrontend === 'react-vite') {
-          content += `    {cyan-fg}"react"{/cyan-fg}: {yellow-fg}"^18.2.0"{/yellow-fg},\n`;
-          content += `    {cyan-fg}"react-dom"{/cyan-fg}: {yellow-fg}"^18.2.0"{/yellow-fg}\n`;
+          content += `    {red-fg}"react"{/red-fg}: {gray-fg}"^18.2.0"{/gray-fg},\n`;
+          content += `    {red-fg}"react-dom"{/red-fg}: {gray-fg}"^18.2.0"{/gray-fg}\n`;
         } else if (effectiveFrontend === 'svelte') {
-          content += `    {cyan-fg}"svelte"{/cyan-fg}: {yellow-fg}"^4.0.0"{/yellow-fg}\n`;
+          content += `    {red-fg}"svelte"{/red-fg}: {gray-fg}"^4.0.0"{/gray-fg}\n`;
         }
         content += `  }\n`;
       }
@@ -489,25 +620,25 @@ export function showSelectScreen(onComplete, onCancel, initialProjectName) {
       if (effectiveBackend && effectiveBackend !== 'nextjs-api') {
         content += '\n{gray-fg}// backend/package.json{/gray-fg}\n';
         content += '{\n';
-        content += `  {cyan-fg}"name"{/cyan-fg}: {yellow-fg}"backend"{/yellow-fg},\n`;
-        content += `  {cyan-fg}"type"{/cyan-fg}: {yellow-fg}"module"{/yellow-fg},\n`;
-        content += `  {cyan-fg}"dependencies"{/cyan-fg}: {\n`;
+        content += `  {red-fg}"name"{/red-fg}: {gray-fg}"backend"{/gray-fg},\n`;
+        content += `  {red-fg}"type"{/red-fg}: {gray-fg}"module"{/gray-fg},\n`;
+        content += `  {red-fg}"dependencies"{/red-fg}: {\n`;
         if (effectiveBackend === 'express') {
-          content += `    {cyan-fg}"express"{/cyan-fg}: {yellow-fg}"^4.18.0"{/yellow-fg},\n`;
-          content += `    {cyan-fg}"cors"{/cyan-fg}: {yellow-fg}"^2.8.5"{/yellow-fg}`;
+          content += `    {red-fg}"express"{/red-fg}: {gray-fg}"^4.18.0"{/gray-fg},\n`;
+          content += `    {red-fg}"cors"{/red-fg}: {gray-fg}"^2.8.5"{/gray-fg}`;
         } else if (effectiveBackend === 'fastify') {
-          content += `    {cyan-fg}"fastify"{/cyan-fg}: {yellow-fg}"^4.0.0"{/yellow-fg},\n`;
-          content += `    {cyan-fg}"@fastify/cors"{/cyan-fg}: {yellow-fg}"^8.0.0"{/yellow-fg}`;
+          content += `    {red-fg}"fastify"{/red-fg}: {gray-fg}"^4.0.0"{/gray-fg},\n`;
+          content += `    {red-fg}"@fastify/cors"{/red-fg}: {gray-fg}"^8.0.0"{/gray-fg}`;
         } else if (effectiveBackend === 'fastapi') {
           content += `    {gray-fg}# Python backend{/gray-fg}\n`;
-          content += `    {cyan-fg}"fastapi"{/cyan-fg}: {yellow-fg}"latest"{/yellow-fg}`;
+          content += `    {red-fg}"fastapi"{/red-fg}: {gray-fg}"latest"{/gray-fg}`;
         }
         if (effectiveDatabase && effectiveDatabase !== 'none') {
           content += `,\n`;
-          if (effectiveDatabase === 'postgres')  content += `    {cyan-fg}"pg"{/cyan-fg}: {yellow-fg}"^8.11.0"{/yellow-fg}`;
-          if (effectiveDatabase === 'mongodb')   content += `    {cyan-fg}"mongoose"{/cyan-fg}: {yellow-fg}"^7.0.0"{/yellow-fg}`;
-          if (effectiveDatabase === 'mysql')     content += `    {cyan-fg}"mysql2"{/cyan-fg}: {yellow-fg}"^3.6.0"{/yellow-fg}`;
-          if (effectiveDatabase === 'supabase')  content += `    {cyan-fg}"@supabase/supabase-js"{/cyan-fg}: {yellow-fg}"^2.0.0"{/yellow-fg}`;
+          if (effectiveDatabase === 'postgres')  content += `    {red-fg}"pg"{/red-fg}: {gray-fg}"^8.11.0"{/gray-fg}`;
+          if (effectiveDatabase === 'mongodb')   content += `    {red-fg}"mongoose"{/red-fg}: {gray-fg}"^7.0.0"{/gray-fg}`;
+          if (effectiveDatabase === 'mysql')     content += `    {red-fg}"mysql2"{/red-fg}: {gray-fg}"^3.6.0"{/gray-fg}`;
+          if (effectiveDatabase === 'supabase')  content += `    {red-fg}"@supabase/supabase-js"{/red-fg}: {gray-fg}"^2.0.0"{/gray-fg}`;
         }
         content += `\n  }\n}\n`;
       }
@@ -521,23 +652,23 @@ export function showSelectScreen(onComplete, onCancel, initialProjectName) {
     let content = '';
 
     if (step === 'projectName') {
-      content += `{green-fg}{bold} ← Backspace {/bold}{/green-fg}{gray-fg}Delete{/gray-fg}  `;
-      content += `{green-fg}{bold} Enter {/bold}{/green-fg}{gray-fg}Confirm{/gray-fg}  `;
+      content += `{#ff4d4d-fg}{bold} ← Backspace {/bold}{/#ff4d4d-fg}{#ffffff-fg}Delete{/#ffffff-fg}  `;
+      content += `{#ff4d4d-fg}{bold} Enter {/bold}{/#ff4d4d-fg}{#ffffff-fg}Confirm{/#ffffff-fg}  `;
     } else {
-      content += `{green-fg}{bold} ${icons.arrowUp}${icons.arrowDown} {/bold}{/green-fg}{gray-fg}Navigate{/gray-fg}  `;
-      content += `{green-fg}{bold} Enter {/bold}{/green-fg}{gray-fg}Select{/gray-fg}  `;
+      content += `{#ff4d4d-fg}{bold} ${icons.arrowUp}${icons.arrowDown} {/bold}{/#ff4d4d-fg}{#ffffff-fg}Navigate{/#ffffff-fg}  `;
+      content += `{#ff4d4d-fg}{bold} Enter {/bold}{/#ff4d4d-fg}{#ffffff-fg}Select{/#ffffff-fg}  `;
       if (step !== 'frontend') {
-        content += `{green-fg}{bold} ← {/bold}{/green-fg}{gray-fg}Back{/gray-fg}  `;
+        content += `{#ff4d4d-fg}{bold} ← {/bold}{/#ff4d4d-fg}{#ffffff-fg}Back{/#ffffff-fg}  `;
       } else {
-        content += `{green-fg}{bold} ← {/bold}{/green-fg}{gray-fg}Back (name){/gray-fg}  `;
+        content += `{#ff4d4d-fg}{bold} ← {/bold}{/#ff4d4d-fg}{#ffffff-fg}Back (name){/#ffffff-fg}  `;
       }
     }
 
-    content += `{green-fg}{bold} ESC {/bold}{/green-fg}{gray-fg}Quit{/gray-fg}`;
+    content += `{#ff4d4d-fg}{bold} ESC {/bold}{/#ff4d4d-fg}{#ffffff-fg}Quit{/#ffffff-fg}`;
     footerContent.setContent(content);
 
     stepIndicator.setContent(
-      `{gray-fg}Step {/gray-fg}{cyan-fg}${getStepNumber()}{/cyan-fg}{gray-fg}/${getTotalSteps()}{/gray-fg}`
+      `{#ffffff-fg}Step {/#ffffff-fg}{#ff4d4d-fg}${getStepNumber()}{/#ff4d4d-fg}{#ffffff-fg}/${getTotalSteps()}{/#ffffff-fg}`
     );
   }
 
@@ -547,18 +678,18 @@ export function showSelectScreen(onComplete, onCancel, initialProjectName) {
       nameInputBox.show();
       nameHintLabel.show();
       choicesBox.hide();
-      middlePanel.style.border = { fg: colors.secondary }; // cyan border for input step
+      middlePanel.style.border = { fg: colors.secondary }; // white border for input step
     } else {
       nameInputBox.hide();
       nameHintLabel.hide();
       choicesBox.show();
-      middlePanel.style.border = { fg: colors.primary }; // green border for choice steps
+      middlePanel.style.border = { fg: colors.primary }; // red border for choice steps
     }
   }
 
   function updateDisplay() {
     syncPanelVisibility();
-    questionLabel.setContent(`{cyan-fg}{bold}${getQuestion()}{/bold}{/cyan-fg}`);
+    questionLabel.setContent(`{red-fg}{bold}${getQuestion()}{/bold}{/red-fg}`);
     updateFooter();
     renderSidebar();
 
@@ -600,6 +731,7 @@ export function showSelectScreen(onComplete, onCancel, initialProjectName) {
   // only works for named keys, not for arbitrary typed characters.
   function handleNameChar(ch, key) {
     if (!isActive || step !== 'projectName') return;
+    if (overwriteDialog) return;
     if (transitionLocked) return;
 
     const keyName = key?.name ?? '';
@@ -613,24 +745,18 @@ export function showSelectScreen(onComplete, onCancel, initialProjectName) {
         updateDisplay();
         return;
       }
-      nameError = '';
-      nameBuffer = trimmed;
-      selections.projectName = trimmed;
-      step = 'frontend';
-      selectedIndex = 0;
 
-      // Lock transitions for a tick so the same Enter keypress
-      // can't accidentally trigger handleEnter on the new step
-      transitionLocked = true;
+      // Always reset overwrite state until user explicitly confirms in popup.
+      selections.overwriteExisting = false;
+      selections.overwriteConfirmedAt = null;
 
-      // Switch from free-text input to list-navigation
-      screen.removeListener('keypress', handleNameChar);
-      bindSelectionKeys();
+      // Ask for explicit overwrite confirmation in a popup
+      if (fs.existsSync(path.join(process.cwd(), trimmed))) {
+        showOverwriteDialog(trimmed);
+        return;
+      }
 
-      updateDisplay();
-
-      // Unlock on next tick — the Enter event is fully processed by then
-      process.nextTick(() => { transitionLocked = false; });
+      proceedFromProjectName(trimmed, false);
       return;
     }
 
@@ -641,7 +767,7 @@ export function showSelectScreen(onComplete, onCancel, initialProjectName) {
 
     if (keyName === 'backspace' || keyName === 'delete') {
       nameBuffer = nameBuffer.slice(0, -1);
-      nameError = '';
+      if (nameError) nameError = '';
       updateDisplay();
       return;
     }
@@ -650,7 +776,7 @@ export function showSelectScreen(onComplete, onCancel, initialProjectName) {
     if (ch && ch.length === 1 && /[a-zA-Z0-9_-]/.test(ch)) {
       if (nameBuffer.length < 50) {
         nameBuffer += ch;
-        nameError = '';
+        if (nameError) nameError = '';
         updateDisplay();
       }
     }
@@ -733,9 +859,13 @@ export function showSelectScreen(onComplete, onCancel, initialProjectName) {
     } else if (step === 'frontend') {
       // Go back to project name step
       selections.projectName = '';
+      selections.overwriteExisting = false;
+      selections.overwriteConfirmedAt = null;
       step = 'projectName';
       nameBuffer = '';
       nameError = '';
+      pendingOverwrite = null;
+      closeOverwriteDialog();
 
       // Switch from list-navigation back to free-text input
       unbindSelectionKeys();
@@ -747,10 +877,15 @@ export function showSelectScreen(onComplete, onCancel, initialProjectName) {
 
   function handleEscape() {
     if (!isActive) return;
+    if (overwriteDialog && step === 'projectName') {
+      handleOverwriteCancel();
+      return;
+    }
     isActive = false;
     if (animationTimer) clearInterval(animationTimer);
     // Remove every listener we ever registered
     unbindSelectionKeys();
+    closeOverwriteDialog();
     screen.unkey(['escape'], handleEscape);
     screen.removeListener('keypress', handleNameChar);
     container.destroy();

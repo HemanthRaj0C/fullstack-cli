@@ -22,12 +22,9 @@ async function resolveFirstAvailable(candidates) {
 export async function runPreflightChecks(answers) {
   const required = [
     { label: 'git', command: 'git', args: ['--version'] },
-    { label: 'npm', command: 'npm', args: ['--version'] }
+    { label: 'npm', command: 'npm', args: ['--version'] },
+    { label: 'npx', command: 'npx', args: ['--version'] }
   ];
-
-  if (answers.frontend === 'nextjs' || answers.frontend === 'svelte' || answers.frontend === 'react-vite') {
-    required.push({ label: 'npx', command: 'npx', args: ['--version'] });
-  }
 
   if (answers.backend === 'fastapi') {
     const pythonCommand = await resolveFirstAvailable([

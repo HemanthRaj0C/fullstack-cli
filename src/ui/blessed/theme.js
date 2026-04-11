@@ -5,16 +5,16 @@
 // Import figures for cross-platform icons
 import figures from 'figures';
 
-// Color palette for blessed (uses terminal color names)
+// Color palette — High-contrast red/white theme
 export const colors = {
-  primary: 'green',
-  secondary: 'cyan',
-  accent: 'magenta',
-  warning: 'yellow',
-  error: 'red',
-  success: 'green',
-  muted: 'gray',
-  text: 'white',
+  primary: '#ff4d4d',
+  secondary: '#ffffff',
+  accent: '#ff8a8a',
+  warning: '#ff7a7a',
+  error: '#ff0000',
+  success: '#ff4d4d',
+  muted: '#7a7a7a',
+  text: '#ffffff',
   bg: 'black',
 };
 
@@ -90,7 +90,7 @@ export const icons = {
 export const borders = {
   line: 'line',
   bg: 'black',
-  fg: 'green',
+  fg: 'red',
 };
 
 // Box styling presets

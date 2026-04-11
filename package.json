@@ -47,6 +47,7 @@
     "figlet": "^1.7.0",
     "figures": "^6.1.0",
     "fs-extra": "^11.2.0",
+    "gradient-string": "^3.0.0",
     "inquirer": "^9.2.12",
     "ora": "^8.0.1"
   }

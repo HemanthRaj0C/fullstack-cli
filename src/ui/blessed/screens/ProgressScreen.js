@@ -105,7 +105,7 @@ export function showProgressScreen(options = {}) {
     left: 0,
     width: screenWidth,
     height: 3,
-    content: `{cyan-fg}{bold} ${labels.mainHeader} {/bold}{/cyan-fg}{gray-fg} :: ${labels.generatingProject} {/gray-fg}`,
+    content: `{#ff0000-fg}{bold} ${labels.mainHeader} {/bold}{/#ff0000-fg}{gray-fg} :: ${labels.generatingProject} {/gray-fg}`,
     align: 'center',
     valign: 'middle',
     tags: true,
@@ -268,7 +268,7 @@ export function showProgressScreen(options = {}) {
     parent: starPrompt,
     top: 0,
     left: 1,
-    content: `{yellow-fg}${icons.star}{/yellow-fg} {white-fg}${labels.starPrompt}{/white-fg} {green-fg}${appInfo.repo}{/green-fg}`,
+    content: `{#ffffff-fg}${icons.star}{/#ffffff-fg} {#ffffff-fg}${labels.starPrompt}{/#ffffff-fg} {#ff0000-fg}${appInfo.repo}{/#ff0000-fg}`,
     tags: true,
   });
 
@@ -300,7 +300,7 @@ export function showProgressScreen(options = {}) {
     parent: footer,
     top: 0,
     right: 2,
-    content: `{green-fg}{bold} CTRL+C {/bold}{/green-fg}{gray-fg}Exit{/gray-fg}`,
+    content: `{#ff0000-fg}{bold} CTRL+C {/bold}{/#ff0000-fg}{gray-fg}Exit{/gray-fg}`,
     tags: true,
   });
 
@@ -328,15 +328,15 @@ export function showProgressScreen(options = {}) {
     bar += '-'.repeat(empty);
     
     const spinner = progressPercent < 100 ? getAnimatedSpinner() + ' ' : '';
-    return `{green-fg}[${bar}]{/green-fg} {white-fg}${progressPercent}%{/white-fg} ${spinner}`;
+    return `{#ff0000-fg}[${bar}]{/#ff0000-fg} {#ffffff-fg}${progressPercent}%{/#ffffff-fg} ${spinner}`;
   }
 
   function getStepIcon(status) {
     switch (status) {
       case 'pending': return `{gray-fg}${icons.pending}{/gray-fg}`;
-      case 'running': return `{yellow-fg}${getAnimatedSpinner()}{/yellow-fg}`;
-      case 'done': return `{green-fg}${icons.done}{/green-fg}`;
-      case 'failed': return `{red-fg}${icons.failed}{/red-fg}`;
+      case 'running': return `{#ffffff-fg}${getAnimatedSpinner()}{/#ffffff-fg}`;
+      case 'done': return `{red-fg}${icons.done}{/red-fg}`;
+      case 'failed': return `{#ff0000-fg}${icons.failed}{/#ff0000-fg}`;
       default: return `{gray-fg}${icons.pending}{/gray-fg}`;
     }
   }
@@ -345,16 +345,16 @@ export function showProgressScreen(options = {}) {
     let content = '';
     steps.forEach((step, idx) => {
       const icon = getStepIcon(step.status);
-      const labelColor = step.status === 'running' ? 'yellow' 
-        : step.status === 'done' ? 'green' 
-        : step.status === 'failed' ? 'red' 
-        : 'gray';
+      const labelColor = step.status === 'running' ? '#ff8a8a'
+        : step.status === 'done' ? '#ff4d4d'
+        : step.status === 'failed' ? '#ff0000'
+        : '#7a7a7a';
       
       content += `${icon} {${labelColor}-fg}${step.label}{/${labelColor}-fg}\n`;
       
       // Connection line (except for last item)
       if (idx < steps.length - 1) {
-        const lineColor = step.status === 'done' ? 'green' : 'gray';
+        const lineColor = step.status === 'done' ? '#ff4d4d' : '#7a7a7a';
         content += `{${lineColor}-fg}${icons.line}{/${lineColor}-fg}\n`;
       }
     });
@@ -367,22 +367,22 @@ export function showProgressScreen(options = {}) {
     let content = '';
     
     // NPM Section - simple clean layout
-    content += `{cyan-fg}{bold}npm{/bold}{/cyan-fg}${loadingSpinner}\n`;
+    content += `{#ff0000-fg}{bold}npm{/bold}{/#ff0000-fg}${loadingSpinner}\n`;
     content += `{gray-fg}──────────────{/gray-fg}\n`;
-    content += `{white-fg}${labels.npmDownloads}{/white-fg}\n`;
-    content += `{green-fg}{bold}${formatNumber(npmDownloads)}{/bold}{/green-fg}\n\n`;
+    content += `{#ffffff-fg}${labels.npmDownloads}{/#ffffff-fg}\n`;
+    content += `{#ff0000-fg}{bold}${formatNumber(npmDownloads)}{/bold}{/#ff0000-fg}\n\n`;
     
     // GitHub Section
-    content += `{magenta-fg}{bold}${labels.githubStats}{/bold}{/magenta-fg}\n`;
+    content += `{#ff0000-fg}{bold}${labels.githubStats}{/bold}{/#ff0000-fg}\n`;
     content += `{gray-fg}──────────────{/gray-fg}\n`;
-    content += `{yellow-fg}★{/yellow-fg} ${labels.stars}: {green-fg}${formatNumber(githubStars)}{/green-fg}\n`;
-    content += `{white-fg}⑂{/white-fg} ${labels.forks}: {white-fg}${formatNumber(githubForks)}{/white-fg}\n\n`;
+    content += `{#ffffff-fg}★{/#ffffff-fg} ${labels.stars}: {#ff0000-fg}${formatNumber(githubStars)}{/#ff0000-fg}\n`;
+    content += `{#ffffff-fg}⑂{/#ffffff-fg} ${labels.forks}: {#ffffff-fg}${formatNumber(githubForks)}{/#ffffff-fg}\n\n`;
     
     // Status indicator
     if (statsLoaded) {
-      content += `{green-fg}${icons.done}{/green-fg} {green-fg}${labels.synced}{/green-fg}`;
+      content += `{red-fg}${icons.done}{/red-fg} {red-fg}${labels.synced}{/red-fg}`;
     } else {
-      content += `{yellow-fg}${icons.pending}{/yellow-fg} {yellow-fg}${labels.loading}{/yellow-fg}`;
+      content += `{#ffffff-fg}${icons.pending}{/#ffffff-fg} {#ffffff-fg}${labels.loading}{/#ffffff-fg}`;
     }
     
     statsContent.setContent(content);
@@ -398,9 +398,9 @@ export function showProgressScreen(options = {}) {
   function updateStatus(message, isError = false, isDone = false) {
     const spinner = isDone ? '' : getAnimatedSpinner() + ' ';
     const icon = isDone 
-      ? (isError ? `{red-fg}${icons.failed}{/red-fg}` : `{green-fg}${icons.success}{/green-fg}`)
-      : `{yellow-fg}${getAnimatedSpinner()}{/yellow-fg}`;
-    const color = isError ? 'red' : isDone ? 'green' : 'yellow';
+      ? (isError ? `{#ff0000-fg}${icons.failed}{/#ff0000-fg}` : `{red-fg}${icons.success}{/red-fg}`)
+      : `{#ffffff-fg}${getAnimatedSpinner()}{/#ffffff-fg}`;
+    const color = isError ? '#ff0000' : isDone ? '#ff4d4d' : '#ff8a8a';
     statusText.setContent(`${icon} {${color}-fg}${message}{/${color}-fg}`);
   }
 
@@ -484,8 +484,8 @@ export function showProgressScreen(options = {}) {
       if (cleanMsg.match(/^[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]+/)) return;
       if (cleanMsg.match(/^npm warn/i)) return;
       
-      // Truncate very long lines
-      const maxLen = 60;
+      // Truncate very long lines based on panel width while preserving ellipsis.
+      const maxLen = Math.max(60, middlePanelWidth - 10);
       if (cleanMsg.length > maxLen) {
         cleanMsg = cleanMsg.substring(0, maxLen - 3) + '...';
       }
@@ -495,16 +495,16 @@ export function showProgressScreen(options = {}) {
       
       switch (type) {
         case 'success':
-          color = 'green';
-          prefix = '{green-fg}✓{/green-fg} ';
+          color = '#ff4d4d';
+          prefix = '{red-fg}✓{/red-fg} ';
           break;
         case 'error':
           color = 'red';
-          prefix = '{red-fg}✗{/red-fg} ';
+          prefix = '{#ff0000-fg}✗{/#ff0000-fg} ';
           break;
         case 'warning':
-          color = 'yellow';
-          prefix = '{yellow-fg}!{/yellow-fg} ';
+          color = '#ff8a8a';
+          prefix = '{#ffffff-fg}!{/#ffffff-fg} ';
           break;
         default:
           prefix = '{gray-fg}>{/gray-fg} ';

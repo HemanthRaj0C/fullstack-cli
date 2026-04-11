@@ -3,8 +3,10 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
 import figlet from 'figlet';
+import gradient from 'gradient-string';
 import { createProject } from './commands/create.js';
 import { fullscreen } from './ui/blessed/index.js';
+import { installNonTuiTerminalGuards } from './utils/terminal.js';
 
 const program = new Command();
 const isTuiMode = process.argv.includes('--tui');
@@ -16,14 +18,33 @@ if (isTuiMode && !process.argv.includes('create')) {
   process.exit(0);
 }
 
+// btop-inspired red gradient
+const btopGradient = gradient(['#ff3333', '#cc0000']);
+
 if (!isTuiMode) {
-  // Display banner
+  installNonTuiTerminalGuards(() => {
+    console.log(`\n${chalk.dim('Interrupted. Exiting...')}`);
+  });
+
+  // Premium gradient banner
+  const bannerText = figlet.textSync('fs-cli', {
+    font: 'ANSI Shadow',
+    horizontalLayout: 'fitted',
+  });
+  console.log('');
+  console.log(btopGradient(bannerText));
   console.log(
-    chalk.cyan(
-      figlet.textSync('create-fs-cli', { font: 'Standard' })
-    )
+    chalk.dim('  ─────────────────────────────────────────────────────────')
   );
-  console.log(chalk.dim('\n  ▷ Rapidly scaffold full-stack applications\n'));
+  console.log(
+    `  ${chalk.red('▸')} ${chalk.white.bold('Fullstack scaffolding')} ${chalk.dim('·')} ${chalk.gray('Scaffolding so fast, it feels illegal.')}`
+  );
+  console.log(
+    `  ${chalk.dim('  Run with')} ${chalk.red('--tui')} ${chalk.dim('for the fullscreen experience')}`
+  );
+  console.log(
+    chalk.dim('  ─────────────────────────────────────────────────────────\n')
+  );
 }
 
 program
@@ -58,4 +79,4 @@ program.action(async (options) => {
   await createProject();
 });
 
-program.parse();
+await program.parseAsync(process.argv);

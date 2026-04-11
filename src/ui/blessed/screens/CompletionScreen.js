@@ -27,6 +27,14 @@ export function showCompletionScreen(options, onExit) {
   // Sparkle animation frames  
   const sparkles = ['*', '+', '*', '+'];
 
+  function ellipsize(value, maxLen) {
+    const text = String(value ?? '').replace(/\s+/g, ' ').trim();
+    if (maxLen <= 0) return '';
+    if (text.length <= maxLen) return text;
+    if (maxLen <= 3) return '.'.repeat(maxLen);
+    return text.slice(0, maxLen - 3) + '...';
+  }
+
   // Main container
   const container = blessed.box({
     parent: screen,
@@ -43,13 +51,13 @@ export function showCompletionScreen(options, onExit) {
     left: 0,
     width: screenWidth,
     height: 3,
-    content: `{green-fg}{bold} ${icons.success} ${labels.projectCreated} ${icons.success} {/bold}{/green-fg}`,
+    content: `{red-fg}{bold} ${icons.success} ${labels.projectCreated} ${icons.success} {/bold}{/red-fg}`,
     align: 'center',
     valign: 'middle',
     tags: true,
     border: { type: 'line' },
     style: {
-      border: { fg: colors.success },
+      border: { fg: colors.primary },
     },
   });
 
@@ -124,7 +132,7 @@ export function showCompletionScreen(options, onExit) {
     parent: footer,
     top: 0,
     left: 2,
-    content: `{yellow-fg}${icons.star}{/yellow-fg} {white-fg}Star us:{/white-fg} {cyan-fg}${appInfo.repo}{/cyan-fg}`,
+    content: `{#ffffff-fg}${icons.star}{/#ffffff-fg} {#ffffff-fg}Star us:{/#ffffff-fg} {#ff0000-fg}${appInfo.repo}{/#ff0000-fg}`,
     tags: true,
   });
 
@@ -132,7 +140,7 @@ export function showCompletionScreen(options, onExit) {
     parent: footer,
     top: 0,
     right: 2,
-    content: `{green-fg}{bold} ENTER {/bold}{/green-fg}{gray-fg}${labels.exitHint}{/gray-fg}`,
+    content: `{#ff0000-fg}{bold} ENTER {/bold}{/#ff0000-fg}{gray-fg}${labels.exitHint}{/gray-fg}`,
     tags: true,
   });
 
@@ -158,14 +166,15 @@ export function showCompletionScreen(options, onExit) {
 
   function renderBanner() {
     const sparkle = sparkles[sparkleFrame % sparkles.length];
+    const nameDisplay = ellipsize(projectName, Math.max(12, screenWidth - 20));
     
     let content = '';
-    content += `{green-fg}{bold}${sparkle} ${labels.successBanner} ${sparkle}{/bold}{/green-fg}\n\n`;
-    content += `{gray-fg}Project:{/gray-fg}  {white-fg}{bold}${projectName}{/bold}{/white-fg}\n`;
-    content += `{gray-fg}Stack:{/gray-fg}    {cyan-fg}${getDisplayName(selections.frontend)}{/cyan-fg}`;
-    content += ` {gray-fg}+{/gray-fg} {cyan-fg}${getDisplayName(selections.backend)}{/cyan-fg}`;
+    content += `{#ff0000-fg}{bold}${sparkle} ${labels.successBanner} ${sparkle}{/bold}{/#ff0000-fg}\n\n`;
+    content += `{gray-fg}Project:{/gray-fg}  {#ffffff-fg}{bold}${nameDisplay}{/bold}{/#ffffff-fg}\n`;
+    content += `{gray-fg}Stack:{/gray-fg}    {#ff0000-fg}${getDisplayName(selections.frontend)}{/#ff0000-fg}`;
+    content += ` {gray-fg}+{/gray-fg} {#ff0000-fg}${getDisplayName(selections.backend)}{/#ff0000-fg}`;
     if (selections.database && selections.database !== 'none') {
-      content += ` {gray-fg}+{/gray-fg} {cyan-fg}${getDisplayName(selections.database)}{/cyan-fg}`;
+      content += ` {gray-fg}+{/gray-fg} {#ff0000-fg}${getDisplayName(selections.database)}{/#ff0000-fg}`;
     }
     
     bannerText.setContent(content);
@@ -173,67 +182,89 @@ export function showCompletionScreen(options, onExit) {
 
   function renderSteps() {
     const isSeparateBackend = selections.backend && selections.backend !== 'nextjs-api';
+    const commandWidth = Math.max(12, screenWidth - 26);
+    const treeWidth = Math.max(12, screenWidth - 17);
+    const envWidth = Math.max(18, screenWidth - 24);
+    const projectDirDisplay = ellipsize(`${projectName}/`, treeWidth - 3);
+    const frontendInstallCmd = ellipsize('cd frontend && npm install', commandWidth);
+    const frontendRunCmd = ellipsize('cd frontend && npm run dev', commandWidth);
+    const backendInstallCmd = selections.backend === 'fastapi'
+      ? 'cd backend && pip install -r requirements.txt'
+      : 'cd backend && npm install';
+    const backendRunCmd = selections.backend === 'fastapi'
+      ? 'cd backend && uvicorn main:app --reload --port 5000'
+      : 'cd backend && npm run dev';
+
+    const stepLine = (num, text) =>
+      `{#ff4d4d-fg}${icons.done}{/#ff4d4d-fg} {#ffffff-fg}{bold}Step ${num}:{/bold}{/#ffffff-fg} {#ffffff-fg}${text}{/#ffffff-fg}\n`;
     
     let content = '';
+    let stepNum = 1;
     
     // Step 1: Navigate to project
-    content += `{green-fg}${icons.done}{/green-fg} {white-fg}{bold}Step 1:{/bold}{/white-fg} Navigate to your project\n`;
-    content += `   L {cyan-fg}cd ${projectName}{/cyan-fg}\n\n`;
+    content += stepLine(stepNum++, 'Navigate to your project');
+    content += `   └ {#ff0000-fg}${ellipsize(`cd ${projectName}`, commandWidth)}{/#ff0000-fg}\n\n`;
     
-    // Step 2: Start frontend
-    content += `{green-fg}${icons.done}{/green-fg} {white-fg}{bold}Step 2:{/bold}{/white-fg} Start the frontend dev server\n`;
-    content += `   L {cyan-fg}cd frontend && npm run dev{/cyan-fg}\n`;
-    content += `      {gray-fg}-> Opens at http://localhost:3000{/gray-fg}\n\n`;
-    
-    // Step 3: Start backend (if separate)
+    // Step 2: Install dependencies
+    content += stepLine(stepNum++, 'Install dependencies');
+    content += `   └ {#ff0000-fg}${frontendInstallCmd}{/#ff0000-fg}\n`;
     if (isSeparateBackend) {
-      content += `{green-fg}${icons.done}{/green-fg} {white-fg}{bold}Step 3:{/bold}{/white-fg} Start the backend server {yellow-fg}(new terminal){/yellow-fg}\n`;
-      
-      if (selections.backend === 'fastapi') {
-        content += `   L {cyan-fg}cd backend && uvicorn main:app --reload{/cyan-fg}\n`;
-        content += `      {gray-fg}-> Opens at http://localhost:8000{/gray-fg}\n\n`;
-      } else {
-        content += `   L {cyan-fg}cd backend && npm start{/cyan-fg}\n`;
-        content += `      {gray-fg}-> Opens at http://localhost:4000{/gray-fg}\n\n`;
-      }
+      content += `   └ {#ff0000-fg}${ellipsize(backendInstallCmd, commandWidth)}{/#ff0000-fg}\n`;
+    } else {
+      content += `      {#7a7a7a-fg}→ create-next-app usually preinstalls deps (rerun only if needed){/#7a7a7a-fg}\n`;
+    }
+    content += '\n';
+    
+    // Step 3: Start dev servers
+    if (isSeparateBackend) {
+      content += stepLine(stepNum++, 'Start development servers');
+      content += `   └ {#ffffff-fg}Terminal 1{/#ffffff-fg} {#7a7a7a-fg}(backend){/#7a7a7a-fg}\n`;
+      content += `     {#ff0000-fg}${ellipsize(backendRunCmd, commandWidth)}{/#ff0000-fg}\n`;
+      content += `      {#7a7a7a-fg}→ Opens at http://localhost:5000{/#7a7a7a-fg}\n`;
+      content += `   └ {#ffffff-fg}Terminal 2{/#ffffff-fg} {#7a7a7a-fg}(frontend){/#7a7a7a-fg}\n`;
+      content += `     {#ff0000-fg}${frontendRunCmd}{/#ff0000-fg}\n`;
+      content += `      {#7a7a7a-fg}→ Opens at http://localhost:3000{/#7a7a7a-fg}\n\n`;
+    } else {
+      content += stepLine(stepNum++, 'Start the app');
+      content += `   └ {#ff0000-fg}${frontendRunCmd}{/#ff0000-fg}\n`;
+      content += `      {#7a7a7a-fg}→ Opens at http://localhost:3000{/#7a7a7a-fg}\n\n`;
     }
     
     // Database setup (if applicable)
     if (selections.database && selections.database !== 'none') {
-      const stepNum = isSeparateBackend ? 4 : 3;
-      content += `{yellow-fg}${icons.warning}{/yellow-fg} {white-fg}{bold}Step ${stepNum}:{/bold}{/white-fg} Configure your database\n`;
+      content += stepLine(stepNum++, 'Configure your database');
       
       if (selections.database === 'postgres') {
-        content += `   L Update {cyan-fg}.env{/cyan-fg} with PostgreSQL connection\n`;
-        content += `      {gray-fg}DATABASE_URL="postgresql://user:pass@localhost:5432/db"{/gray-fg}\n\n`;
+        content += `   └ Update {#ff0000-fg}.env{/#ff0000-fg} with PostgreSQL connection\n`;
+        content += `      {#7a7a7a-fg}${ellipsize('DATABASE_URL="postgresql://user:pass@localhost:5432/db"', envWidth)}{/#7a7a7a-fg}\n\n`;
       } else if (selections.database === 'mongodb') {
-        content += `   L Update {cyan-fg}.env{/cyan-fg} with MongoDB connection\n`;
-        content += `      {gray-fg}MONGODB_URI="mongodb://localhost:27017/mydb"{/gray-fg}\n\n`;
+        content += `   └ Update {#ff0000-fg}.env{/#ff0000-fg} with MongoDB connection\n`;
+        content += `      {#7a7a7a-fg}${ellipsize('MONGODB_URI="mongodb://localhost:27017/mydb"', envWidth)}{/#7a7a7a-fg}\n\n`;
       } else if (selections.database === 'mysql') {
-        content += `   L Update {cyan-fg}.env{/cyan-fg} with MySQL connection\n`;
-        content += `      {gray-fg}DATABASE_URL="mysql://user:pass@localhost:3306/db"{/gray-fg}\n\n`;
+        content += `   └ Update {#ff0000-fg}.env{/#ff0000-fg} with MySQL connection\n`;
+        content += `      {#7a7a7a-fg}${ellipsize('DATABASE_URL="mysql://user:pass@localhost:3306/db"', envWidth)}{/#7a7a7a-fg}\n\n`;
       } else if (selections.database === 'supabase') {
-        content += `   L Update {cyan-fg}.env{/cyan-fg} with Supabase creds\n`;
-        content += `      {gray-fg}SUPABASE_URL="https://your-project.supabase.co"{/gray-fg}\n`;
-        content += `      {gray-fg}SUPABASE_KEY="your-anon-key"{/gray-fg}\n\n`;
+        content += `   └ Update {#ff0000-fg}.env{/#ff0000-fg} with Supabase creds\n`;
+        content += `      {#7a7a7a-fg}${ellipsize('SUPABASE_URL="https://your-project.supabase.co"', envWidth)}{/#7a7a7a-fg}\n`;
+        content += `      {#7a7a7a-fg}${ellipsize('SUPABASE_KEY="your-anon-key"', envWidth)}{/#7a7a7a-fg}\n\n`;
       }
     }
     
     // Project structure - using simple ASCII for perfect alignment
-    content += `{magenta-fg}[dir]{/magenta-fg} {white-fg}{bold}${labels.projectStructure}{/bold}{/white-fg}\n`;
-    content += `   {cyan-fg}${projectName}/{/cyan-fg}\n`;
+    content += `{#ff0000-fg}[dir]{/#ff0000-fg} {#ffffff-fg}{bold}${labels.projectStructure}{/bold}{/#ffffff-fg}\n`;
+    content += `   {#ff0000-fg}${projectDirDisplay}{/#ff0000-fg}\n`;
     
     // Build tree structure with consistent spacing - color entire lines
-    const frontendLine = `   |-- frontend/      # ${getDisplayName(selections.frontend)} app`;
-    content += `{gray-fg}${frontendLine}{/gray-fg}\n`;
+    const frontendLine = ellipsize(`|-- frontend/      # ${getDisplayName(selections.frontend)} app`, treeWidth);
+    content += `{#7a7a7a-fg}   ${frontendLine}{/#7a7a7a-fg}\n`;
     
     if (isSeparateBackend) {
-      const backendLine = `   |-- backend/       # ${getDisplayName(selections.backend)} server`;
-      content += `{gray-fg}${backendLine}{/gray-fg}\n`;
+      const backendLine = ellipsize(`|-- backend/       # ${getDisplayName(selections.backend)} server`, treeWidth);
+      content += `{#7a7a7a-fg}   ${backendLine}{/#7a7a7a-fg}\n`;
     }
     
-    const readmeLine = `   L-- README.md      # Getting started guide`;
-    content += `{gray-fg}${readmeLine}{/gray-fg}\n`;
+    const readmeLine = ellipsize('L-- README.md      # Getting started guide', treeWidth);
+    content += `{#7a7a7a-fg}   ${readmeLine}{/#7a7a7a-fg}\n`;
     
     stepsContent.setContent(content);
   }

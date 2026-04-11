@@ -27,10 +27,10 @@ export async function generateBackend(answers, projectPath) {
   
   // Only show styled header in non-TUI mode
   if (!tuiMode) {
-    logger(`\n${chalk.cyan('◯')} ${chalk.bold('Backend')} ${chalk.dim('· Setting up')} ${chalk.white(backend)}`);
+    logger(`  ${chalk.dim('›')} ${chalk.dim('Setting up')} ${chalk.white(backend)}`);
   }
   
-  const spinner = tuiMode ? null : ora({ text: 'Initializing...', color: 'cyan' }).start();
+  const spinner = tuiMode ? null : ora({ text: 'Initializing...', color: 'red', spinner: 'dots', indent: 2 }).start();
 
   try {
     const templateUrl = TEMPLATES[backend];
@@ -87,7 +87,7 @@ export async function generateBackend(answers, projectPath) {
         logger('Backend ready', 'success');
       }
       if (!tuiMode) {
-        logger(`  ${chalk.yellow('⚠')} ${chalk.dim('Run: cd backend && pip install -r requirements.txt')}\n`);
+        logger(`  ${chalk.red('⚠')} ${chalk.dim('Run: cd backend && pip install -r requirements.txt')}\n`);
       } else {
         logger('Run: cd backend && pip install -r requirements.txt', 'warning');
       }
@@ -98,12 +98,7 @@ export async function generateBackend(answers, projectPath) {
         all: true
       });
 
-      // In TUI mode, don't stream all npm output
-      if (!tuiMode && subprocess.all) {
-        subprocess.all.on('data', (chunk) => {
-          process.stdout.write(chunk.toString());
-        });
-      }
+      // We don't stream npm output natively to keep the UI spinner clean and compact.
 
       await subprocess;
 

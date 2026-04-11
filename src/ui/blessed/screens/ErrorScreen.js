@@ -38,7 +38,7 @@ export function showErrorScreen(options, onRetry, onExit) {
     left: 0,
     width: screenWidth,
     height: 3,
-    content: `{red-fg}{bold} ${icons.error} Oops! Something went wrong ${icons.error} {/bold}{/red-fg}`,
+    content: `{#ff0000-fg}{bold} ${icons.error} Oops! Something went wrong ${icons.error} {/bold}{/#ff0000-fg}`,
     align: 'center',
     valign: 'middle',
     tags: true,
@@ -90,7 +90,7 @@ export function showErrorScreen(options, onRetry, onExit) {
     final: 'Final Setup',
   };
   
-  content += `{yellow-fg}{bold}Failed Step:{/bold}{/yellow-fg} {white-fg}${stepNames[step] || step}{/white-fg}\n\n`;
+  content += `{#ffffff-fg}{bold}Failed Step:{/bold}{/#ffffff-fg} {#ffffff-fg}${stepNames[step] || step}{/#ffffff-fg}\n\n`;
   
   // Error message - truncate if too long
   const errorMsg = error || 'Unknown error occurred';
@@ -111,11 +111,11 @@ export function showErrorScreen(options, onRetry, onExit) {
       : importantLine;
   }
   
-  content += `{red-fg}{bold}Error Message:{/bold}{/red-fg}\n`;
+  content += `{#ff0000-fg}{bold}Error Message:{/bold}{/#ff0000-fg}\n`;
   content += `{gray-fg}${displayError}{/gray-fg}\n\n`;
   
   // Helpful tips based on step
-  content += `{cyan-fg}{bold}Common Fixes:{/bold}{/cyan-fg}\n`;
+  content += `{#ff0000-fg}{bold}Common Fixes:{/bold}{/#ff0000-fg}\n`;
   
   if (step === 'preflight') {
     content += `{gray-fg}• Make sure Node.js and npm are installed{/gray-fg}\n`;
@@ -157,7 +157,7 @@ export function showErrorScreen(options, onRetry, onExit) {
     left: 0,
     width: screenWidth - 8, // screen - optionsBox margins(4) - optionsBox borders(2) - optionsBox padding left(2)
     tags: true,
-    content: `{green-fg}{bold}R{/bold}{/green-fg} {white-fg}Retry{/white-fg}    {red-fg}{bold}ESC{/bold}{/red-fg} {white-fg}Exit{/white-fg}    {yellow-fg}{bold}ENTER{/bold}{/yellow-fg} {white-fg}Exit{/white-fg}`,
+    content: `{#ff0000-fg}{bold}R{/bold}{/#ff0000-fg} {#ffffff-fg}Retry{/#ffffff-fg}    {#ff0000-fg}{bold}ESC{/bold}{/#ff0000-fg} {#ffffff-fg}Exit{/#ffffff-fg}    {#ffffff-fg}{bold}ENTER{/bold}{/#ffffff-fg} {#ffffff-fg}Exit{/#ffffff-fg}`,
   });
 
   // ===== FOOTER =====
@@ -180,7 +180,7 @@ export function showErrorScreen(options, onRetry, onExit) {
     parent: footer,
     top: 0,
     left: 2,
-    content: `{yellow-fg}${icons.warning}{/yellow-fg} {gray-fg}Don't worry, we cleaned up the failed project directory{/gray-fg}`,
+    content: `{#ffffff-fg}${icons.warning}{/#ffffff-fg} {gray-fg}Don't worry, we cleaned up the failed project directory{/gray-fg}`,
     tags: true,
   });
 
@@ -188,7 +188,9 @@ export function showErrorScreen(options, onRetry, onExit) {
   function handleRetry() {
     if (!isActive) return;
     isActive = false;
-    container.detach();
+    screen.unkey(['r', 'R'], handleRetry);
+    screen.unkey(['escape', 'q', 'enter', 'C-c'], handleExit);
+    container.destroy();
     render();
     if (onRetry) onRetry();
   }
@@ -196,7 +198,9 @@ export function showErrorScreen(options, onRetry, onExit) {
   function handleExit() {
     if (!isActive) return;
     isActive = false;
-    container.detach();
+    screen.unkey(['r', 'R'], handleRetry);
+    screen.unkey(['escape', 'q', 'enter', 'C-c'], handleExit);
+    container.destroy();
     render();
     if (onExit) onExit();
   }
@@ -213,7 +217,7 @@ export function showErrorScreen(options, onRetry, onExit) {
     destroy: () => {
       if (!isActive) return;
       isActive = false;
-      container.detach();
+      container.destroy();
     },
   };
 }

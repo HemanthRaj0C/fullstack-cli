@@ -1,12 +1,15 @@
 import inquirer from 'inquirer';
 import chalk from 'chalk';
 import ora from 'ora';
+import gradient from 'gradient-string';
+import boxen from 'boxen';
 import path from 'path';
 import fs from 'fs-extra';
 import { execa } from 'execa';
 import { generateFrontend } from '../generators/frontend.js';
 import { generateBackend } from '../generators/backend.js';
 import { showSuccessMessage } from '../utils/messages.js';
+import { restoreTerminalState } from '../utils/terminal.js';
 import {
   getFrontendChoices,
   getBackendChoices,
@@ -15,83 +18,76 @@ import {
 } from '../utils/stack.js';
 import { runPreflightChecks } from '../utils/preflight.js';
 
+// ─── Theme constants ─────────────────────────────────────────
+const ICONS = {
+  step:    '◆',
+  done:    '✔',
+  fail:    '✖',
+  warn:    '⚠',
+  arrow:   '▸',
+  pointer: '❯',
+  dot:     '·',
+};
+
+const btopGradient = gradient(['#ff3333', '#cc0000']);
+
+// Styled section header
+function sectionHeader(title) {
+  console.log(`\n  ${chalk.gray('▸')} ${chalk.white.bold(title)}`);
+  console.log(chalk.dim(`  ${'─'.repeat(title.length + 2)}`));
+}
+
+// Create a sub-step spinner
+function createSpinner(text) {
+  return ora({
+    text: chalk.dim(text),
+    color: 'red',
+    spinner: 'dots',
+    indent: 2,
+  });
+}
+
+// Step result (after spinner succeeds)
+function stepResult(label, detail = '') {
+  const detailStr = detail ? ` ${chalk.dim(ICONS.dot)} ${chalk.dim(detail)}` : '';
+  console.log(`  ${chalk.red(ICONS.done)} ${chalk.bold(label)}${detailStr}`);
+}
+
 export async function createProject(projectName, options = {}) {
   let projectPath;
   let projectCreated = false;
   let projectExistedBefore = false;
 
   try {
-    // Build prompts - skip project name if provided via CLI
-    const prompts = [];
+    // ─── Step 1: Gather info ───────────────────────────────
+    console.log(`\n  ${chalk.red('▸')} ${chalk.white.bold('Configure Your Stack')}`);
+    console.log(chalk.dim(`  ${'─'.repeat(22)}`));
+
+    let providedProjectName = projectName;
     
-    if (!projectName) {
-      prompts.push({
-        type: 'input',
-        name: 'projectName',
-        message: 'Project name:',
-        prefix: chalk.cyan('?'),
-        default: 'my-fullstack-app',
-        validate: (input) => {
-          if (!/^[a-zA-Z0-9_-]+$/.test(input)) {
-            return 'Project name can only contain letters, numbers, dashes, and underscores (no spaces)';
-          }
-          return true;
+    // Build project name prompt
+    if (!providedProjectName) {
+      const namePrompt = await inquirer.prompt([
+        {
+          type: 'input',
+          name: 'projectName',
+          message: chalk.white('Project name') + chalk.dim(' ·'),
+          prefix: chalk.red(ICONS.pointer),
+          default: 'my-fullstack-app',
+          validate: (input) => {
+            if (!/^[a-zA-Z0-9_-]+$/.test(input)) {
+              return chalk.red('Only letters, numbers, dashes, and underscores (no spaces)');
+            }
+            return true;
+          },
+          transformer: (input) => chalk.white(input),
         }
-      });
+      ]);
+      providedProjectName = namePrompt.projectName;
     }
     
-    prompts.push(
-      {
-        type: 'list',
-        name: 'frontend',
-        message: 'Choose frontend framework:',
-        prefix: chalk.cyan('?'),
-        choices: getFrontendChoices()
-      },
-      {
-        type: 'list',
-        name: 'backend',
-        message: 'Choose backend framework:',
-        prefix: chalk.cyan('?'),
-        choices: (currentAnswers) => getBackendChoices(currentAnswers.frontend)
-      },
-      {
-        type: 'list',
-        name: 'database',
-        message: 'Choose database:',
-        prefix: chalk.cyan('?'),
-        choices: (currentAnswers) => getDatabaseChoices(currentAnswers.backend)
-      }
-    );
-
-    // Step 1: Gather all information
-    const answers = options.answers ? { ...options.answers } : await inquirer.prompt(prompts);
-
-    if (!options.answers) {
-      console.log(); // Add spacing after prompts
-    }
-    
-    // Use CLI argument if provided, otherwise use prompted value
-    if (projectName) {
-      answers.projectName = projectName;
-    }
-
-    if (!answers.projectName) {
-      throw new Error('Project name is required.');
-    }
-
-    const { normalized, warnings } = normalizeStackSelection(answers);
-    Object.assign(answers, normalized);
-
-    for (const warning of warnings) {
-      console.log(`\n  ${chalk.yellow('⚠')} ${chalk.bold('Warning')} ${chalk.dim(`· ${warning}`)}\n`);
-    }
-
-    await runPreflightChecks(answers);
-    console.log(`  ${chalk.green('✔')} ${chalk.bold('Preflight')} ${chalk.dim('· required tools detected')}`);
-
-    // Create project directory
-    projectPath = path.join(process.cwd(), answers.projectName);
+    // Directory check IMMEDIATELY after knowing project name
+    projectPath = path.join(process.cwd(), providedProjectName);
     
     if (await fs.pathExists(projectPath)) {
       projectExistedBefore = true;
@@ -104,8 +100,8 @@ export async function createProject(projectName, options = {}) {
           {
             type: 'confirm',
             name: 'overwrite',
-            prefix: chalk.yellow('⚠'),
-            message: `Directory ${answers.projectName} already exists. Overwrite?`,
+            prefix: chalk.red(ICONS.warn),
+            message: `Directory ${chalk.bold(providedProjectName)} already exists. Overwrite?`,
             default: false
           }
         ]);
@@ -119,29 +115,117 @@ export async function createProject(projectName, options = {}) {
       }
       await fs.remove(projectPath);
     }
+    
+    // Now prompt for the stack choices
+    const prompts = [
+      {
+        type: 'list',
+        name: 'frontend',
+        message: chalk.white('Frontend framework') + chalk.dim(' ·'),
+        prefix: chalk.red(ICONS.pointer),
+        choices: getFrontendChoices().map(c => ({
+          ...c,
+          name: `${chalk.white(c.name)}`,
+        })),
+      },
+      {
+        type: 'list',
+        name: 'backend',
+        message: chalk.white('Backend framework') + chalk.dim(' ·'),
+        prefix: chalk.red(ICONS.pointer),
+        choices: (currentAnswers) => getBackendChoices(currentAnswers.frontend).map(c => ({
+          ...c,
+          name: `${chalk.white(c.name)}`,
+        })),
+      },
+      {
+        type: 'list',
+        name: 'database',
+        message: chalk.white('Database') + chalk.dim(' ·'),
+        prefix: chalk.red(ICONS.pointer),
+        choices: (currentAnswers) => getDatabaseChoices(currentAnswers.backend).map(c => ({
+          ...c,
+          name: `${chalk.white(c.name)}`,
+        })),
+      }
+    ];
 
-    await fs.ensureDir(projectPath);
-    projectCreated = true;
-    console.log(`\n  ${chalk.green('✔')} ${chalk.bold('Project Directory')} ${chalk.dim('·')} ${answers.projectName}`);
+    const stackAnswers = options.answers ? { ...options.answers } : await inquirer.prompt(prompts);
+    const answers = { projectName: providedProjectName, ...stackAnswers };
 
-    // Step 2: Generate frontend
-    await generateFrontend(answers, projectPath);
-
-    // Step 3: Generate backend (if not using Next.js API routes)
-    if (answers.backend !== 'nextjs-api') {
-      await generateBackend(answers, projectPath);
+    if (!options.answers) {
+      console.log(); // Add spacing after prompts
     }
 
-    // Step 4: Clean up and prepare project
+    const { normalized, warnings } = normalizeStackSelection(answers);
+    Object.assign(answers, normalized);
+
+    for (const warning of warnings) {
+      console.log(`  ${chalk.red(ICONS.warn)} ${chalk.bold('Warning')} ${chalk.dim(ICONS.dot + ' ' + warning)}`);
+    }
+
+    // ─── Stack summary ─────────────────────────────────────
+    const displayNames = {
+      'nextjs': 'Next.js', 'react-vite': 'React + Vite', 'svelte': 'SvelteKit',
+      'nextjs-api': 'Next.js API', 'express': 'Express', 'fastify': 'Fastify', 'fastapi': 'FastAPI',
+      'postgres': 'PostgreSQL', 'mongodb': 'MongoDB', 'mysql': 'MySQL', 'supabase': 'Supabase', 'none': 'None',
+    };
+    const dn = (v) => displayNames[v] || v;
+
+    const summaryLines = [
+      `${chalk.white.bold(answers.projectName)}`,
+      '',
+      `${chalk.dim('├─')} Frontend   ${chalk.red(dn(answers.frontend))}`,
+      `${chalk.dim('├─')} Backend    ${chalk.red(dn(answers.backend))}`,
+      `${chalk.dim('└─')} Database   ${chalk.red(dn(answers.database))}`,
+    ];
+
+    console.log(
+      boxen(summaryLines.join('\n'), {
+        padding: { top: 0, bottom: 0, left: 2, right: 3 },
+        margin: { top: 0, bottom: 0, left: 1, right: 0 },
+        borderStyle: 'round',
+        borderColor: 'gray',
+        title: chalk.dim(' Stack Summary '),
+        titleAlignment: 'left',
+      })
+    );
+
+    // ─── Step 2: Preflight ─────────────────────────────────
+    sectionHeader('Preflight Checks');
+    await runPreflightChecks(answers);
+    stepResult('Preflight', 'required tools detected');
+
+    // Create project directory
+    // Note: Directory overwrite check is now handled right after projectName prompt at the start.
+    await fs.ensureDir(projectPath);
+    projectCreated = true;
+    stepResult('Project Directory', answers.projectName);
+
+    // ─── Step 3: Frontend ──────────────────────────────────
+    sectionHeader(`Frontend Setup ${chalk.dim('· ' + dn(answers.frontend))}`);
+    await generateFrontend(answers, projectPath);
+    stepResult('Frontend Setup', `${dn(answers.frontend)} ready`);
+
+    // ─── Step 4: Backend ───────────────────────────────────
+    if (answers.backend !== 'nextjs-api') {
+      sectionHeader(`Backend Setup ${chalk.dim('· ' + dn(answers.backend))}`);
+      await generateBackend(answers, projectPath);
+      stepResult('Backend Setup', `${dn(answers.backend)} ready`);
+    } else {
+      stepResult('Backend Setup', 'integrated with Next.js');
+    }
+
+    // ─── Step 5: Cleanup ───────────────────────────────────
     await cleanupProject(projectPath);
 
-    // Step 5: Create root files
+    // ─── Step 6: Root files ────────────────────────────────
     await createRootFiles(answers, projectPath);
 
-    // Step 6: Initialize fresh git repository
+    // ─── Step 7: Git ───────────────────────────────────────
     await initializeGit(projectPath);
 
-    // Step 7: Show success message
+    // ─── Step 8: Success ───────────────────────────────────
     console.log(); // Empty line before success message
     showSuccessMessage(answers);
 
@@ -150,11 +234,25 @@ export async function createProject(projectName, options = {}) {
       await cleanupFailedProject(projectPath);
     }
 
-    console.error(`\n  ${chalk.red('✖')} ${chalk.bold('Error')} ${chalk.dim('·')} ${error.message}\n`);
+    // Inquirer throws ExitPromptError on Ctrl+C; map it to interrupt semantics.
+    if (error?.name === 'ExitPromptError') {
+      restoreTerminalState();
+
+      if (options.noExit) {
+        throw error;
+      }
+
+      console.log(`\n  ${chalk.dim('Interrupted. Exiting...')}\n`);
+      process.exit(130);
+    }
+
+    console.error(`\n  ${chalk.red(ICONS.fail)} ${chalk.bold('Error')} ${chalk.dim(ICONS.dot)} ${error.message}\n`);
 
     if (options.noExit) {
       throw error;
     }
+
+    restoreTerminalState();
 
     process.exit(1);
   }
@@ -163,9 +261,9 @@ export async function createProject(projectName, options = {}) {
 async function cleanupFailedProject(projectPath) {
   try {
     await fs.remove(projectPath);
-    console.log(`  ${chalk.yellow('⚠')} ${chalk.dim('Removed partially generated project directory after failure.')}`);
+    console.log(`  ${chalk.red(ICONS.warn)} ${chalk.dim('Removed partially generated project directory after failure.')}`);
   } catch (error) {
-    console.log(`  ${chalk.yellow('⚠')} ${chalk.dim(`Could not clean partial project: ${error.message}`)}`);
+    console.log(`  ${chalk.red(ICONS.warn)} ${chalk.dim(`Could not clean partial project: ${error.message}`)}`);
   }
 }
 
@@ -257,7 +355,8 @@ The frontend includes a visual indicator in the top-right corner showing backend
 }
 
 async function cleanupProject(projectPath) {
-  const spinner = ora({ text: 'Cleaning up...', color: 'cyan' }).start();
+  const spinner = createSpinner('Cleaning up...');
+  spinner.start();
   
   try {
     // Remove .git from frontend (created by create-next-app, create-vite, etc.)
@@ -274,12 +373,13 @@ async function cleanupProject(projectPath) {
     
     spinner.succeed(chalk.dim('Project cleaned up'));
   } catch (error) {
-    spinner.warn(chalk.yellow('Cleanup warning: ' + error.message));
+    spinner.warn(chalk.red('Cleanup warning: ' + error.message));
   }
 }
 
 async function initializeGit(projectPath) {
-  const spinner = ora({ text: 'Initializing git repository...', color: 'cyan' }).start();
+  const spinner = createSpinner('Initializing git repository...');
+  spinner.start();
   
   try {
     await execa('git', ['init'], { cwd: projectPath });
@@ -288,6 +388,6 @@ async function initializeGit(projectPath) {
     
     spinner.succeed(chalk.dim('Git repository initialized'));
   } catch (error) {
-    spinner.warn(chalk.yellow('Git init skipped: ' + error.message));
+    spinner.warn(chalk.red('Git init skipped: ' + error.message));
   }
 }

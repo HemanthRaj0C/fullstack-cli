@@ -34,12 +34,16 @@ export function getBackendChoices(frontend) {
 }
 
 export function getDatabaseChoices(backend) {
+  if (backend === 'nextjs-api') {
+    return DATABASE_CHOICES.filter((choice) => choice.value === 'none');
+  }
+
   // FastAPI doesn't support MySQL
   if (backend === 'fastapi') {
     return DATABASE_CHOICES.filter((choice) => choice.value !== 'mysql');
   }
 
-  // All other backends (including nextjs-api) support all databases
+  // All other backends support all databases
   return DATABASE_CHOICES;
 }
 
@@ -54,6 +58,11 @@ export function normalizeStackSelection(answers) {
   if (normalized.backend === 'fastapi' && normalized.database === 'mysql') {
     warnings.push('FastAPI template does not support MySQL. Database selection changed to PostgreSQL.');
     normalized.database = 'postgres';
+  }
+
+  if (normalized.backend === 'nextjs-api' && normalized.database !== 'none') {
+    warnings.push('Next.js API Routes is an integrated backend. Database selection changed to None.');
+    normalized.database = 'none';
   }
 
   return { normalized, warnings };

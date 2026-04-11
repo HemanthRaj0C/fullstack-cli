@@ -128,19 +128,19 @@ export function showBootScreen(onComplete) {
     if (currentStep < bootMessages.length) {
       const msg = bootMessages[currentStep];
       const statusColor = msg.status === 'OK' || msg.status === 'DONE' || msg.status === 'CONNECTED' 
-        ? 'green' : 'yellow';
+        ? '#ff4d4d' : '#ff8a8a';
       
       let content = '';
       for (let i = 0; i <= currentStep; i++) {
         const m = bootMessages[i];
         const sColor = m.status === 'OK' || m.status === 'DONE' || m.status === 'CONNECTED' 
-          ? 'green' : 'yellow';
-        content += `{white-fg}${m.text}{/white-fg} {${sColor}-fg}{bold}${m.status}{/bold}{/${sColor}-fg}\n`;
+          ? '#ff4d4d' : '#ff8a8a';
+        content += `{#ffffff-fg}${m.text}{/#ffffff-fg} {${sColor}-fg}{bold}${m.status}{/bold}{/${sColor}-fg}\n`;
       }
       bootArea.setContent(content);
       
       // Update status bar
-      statusBar.setContent(`{gray-fg}●{/gray-fg} {yellow-fg}INITIALIZING...{/yellow-fg}`);
+      statusBar.setContent(`{gray-fg}●{/gray-fg} {#ffffff-fg}INITIALIZING...{/#ffffff-fg}`);
       
       render();
       currentStep++;
@@ -152,7 +152,7 @@ export function showBootScreen(onComplete) {
   }
 
   function showSystemReady() {
-    systemReady.setContent('{white-fg}{bold}SYSTEM READY.{/bold}{/white-fg}');
+    systemReady.setContent('{#ffffff-fg}{bold}SYSTEM READY.{/bold}{/#ffffff-fg}');
     render();
     setTimeout(showLogo, 200);
   }
@@ -165,7 +165,7 @@ export function showBootScreen(onComplete) {
 
   function showTagline() {
     taglineBox.setContent(
-      `{cyan-fg}│{/cyan-fg} {white-fg}${appInfo.tagline}{/white-fg}\n` +
+      `{gray-fg}│{/gray-fg} {#ffffff-fg}${appInfo.tagline}{/#ffffff-fg}\n` +
       `  {gray-fg}${appInfo.version}-stable{/gray-fg}`
     );
     render();
@@ -175,7 +175,7 @@ export function showBootScreen(onComplete) {
   function showPrompt() {
     phase = 'prompt';
     promptBox.setContent(
-      `{green-fg}{bold}root@dev:~${symbol}{/bold}{/green-fg} {cyan-fg}npx create-fs-cli@latest{/cyan-fg}{green-fg}█{/green-fg}`
+      `{#ff0000-fg}{bold}root@dev:~${symbol}{/bold}{/#ff0000-fg} {#ffffff-fg}npx create-fs-cli@latest{/#ffffff-fg}{#ff0000-fg}█{/#ff0000-fg}`
     );
     render();
     setTimeout(showExecute, 400);
@@ -185,38 +185,46 @@ export function showBootScreen(onComplete) {
 
   function showExecute() {
     phase = 'ready';
-    executeBtn.setContent(`{green-fg}{bold}[ EXECUTE ]{/bold}{/green-fg}`);
+    executeBtn.setContent(`{#ff0000-fg}{bold}[ EXECUTE ]{/bold}{/#ff0000-fg}`);
     statusBar.setContent(
-      `{green-fg}●{/green-fg} {gray-fg}MEM: 24MB/128MB{/gray-fg}` +
-      `                              {green-fg}READY{/green-fg}`
+      `{red-fg}●{/red-fg} {gray-fg}MEM: 24MB/128MB{/gray-fg}` +
+      `                              {red-fg}READY{/red-fg}`
     );
     render();
     
     // Auto-proceed after short delay
     setTimeout(() => {
-      container.destroy();
-      render();
-      onComplete();
+      cleanupAndProceed();
     }, 800);
   }
 
-  // Handle ESC to skip
-  screen.key(['escape', 'q'], () => {
-    if (phase !== 'ready') {
-      container.destroy();
-      render();
-      onComplete();
-    }
-  });
+  let completed = false;
 
-  // Handle Enter to skip
-  screen.key(['enter', 'space'], () => {
+  function cleanupAndProceed() {
+    if (completed) return;
+    completed = true;
+    screen.unkey(['escape', 'q'], handleSkipBoot);
+    screen.unkey(['enter', 'space'], handleEnterBoot);
+    container.destroy();
+    render();
+    onComplete();
+  }
+
+  // Handle ESC to skip boot animation
+  function handleSkipBoot() {
+    if (phase === 'ready') return; // auto-proceed will handle it
+    cleanupAndProceed();
+  }
+
+  // Handle Enter to confirm when ready
+  function handleEnterBoot() {
     if (phase === 'ready') {
-      container.destroy();
-      render();
-      onComplete();
+      cleanupAndProceed();
     }
-  });
+  }
+
+  screen.key(['escape', 'q'], handleSkipBoot);
+  screen.key(['enter', 'space'], handleEnterBoot);
 
   // Start animation
   animateBoot();

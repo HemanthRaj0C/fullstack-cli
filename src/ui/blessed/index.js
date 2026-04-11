@@ -52,10 +52,10 @@ export async function fullscreen(options = {}) {
     // Store the resolver for use by other functions
     exitResolver = resolve;
     
-    // Handle cleanup on exit signals — call process.exit to ensure terminal is fully restored
+    // Handle cleanup on exit signals
     const handleExit = () => {
       exitTUI();
-      process.exit(0);
+      // exitTUI() already calls process.exit(0)
     };
 
     process.on('SIGINT', handleExit);
@@ -103,6 +103,8 @@ async function runGeneration(selections, options = {}) {
   // projectName comes from selections (captured inside TUI wizard)
   const projectName = selections.projectName?.trim() || options.projectName?.trim() || 'my-fullstack-app';
   const projectPath = path.join(process.cwd(), projectName);
+  let projectCreatedByRun = false;
+  let projectExistedBeforeRun = false;
 
   try {
     const { normalized } = normalizeStackSelection({
@@ -117,6 +119,8 @@ async function runGeneration(selections, options = {}) {
       'info',
       'frontend'
     );
+
+    projectExistedBeforeRun = await fs.pathExists(projectPath);
 
     // Step 1: Preflight checks
     progressUI.updateStep('preflight', 'running');
@@ -136,8 +140,22 @@ async function runGeneration(selections, options = {}) {
       throw new Error(`Preflight checks failed: ${err.message}`);
     }
 
+    const overwriteConfirmed =
+      selections.overwriteExisting === true &&
+      Number.isFinite(selections.overwriteConfirmedAt);
+
+    // Check if project directory already exists
+    if (projectExistedBeforeRun) {
+      if (!overwriteConfirmed) {
+        throw new Error(`Directory '${projectName}' already exists! Please choose a different name.`);
+      }
+      progressUI.addLog('Removing existing directory (overwrite confirmed)...', 'warning', 'frontend');
+      await fs.remove(projectPath);
+    }
+
     // Create project directory
     await fs.ensureDir(projectPath);
+    projectCreatedByRun = true;
     progressUI.addLog(`Project path: ${projectPath}`, 'info', 'frontend');
 
     // Step 2: Frontend setup
@@ -228,7 +246,7 @@ async function runGeneration(selections, options = {}) {
 
   } catch (err) {
     // Cleanup on failure
-    if (await fs.pathExists(projectPath)) {
+    if (projectCreatedByRun && await fs.pathExists(projectPath)) {
       progressUI.addLog('Cleaning up failed project...', 'warning', 'frontend');
       try {
         await fs.remove(projectPath);
@@ -262,17 +280,15 @@ async function runGeneration(selections, options = {}) {
       },
       () => {
         // User wants to retry - restart from selection
-        const startSelection = () => {
-          showSelectScreen(
-            async (selections) => {
-              await runGeneration(selections, { projectName });
-            },
-            () => {
-              exitTUI();
-            }
-          );
-        };
-        startSelection();
+        showSelectScreen(
+          async (newSelections) => {
+            await runGeneration(newSelections);
+          },
+          () => {
+            exitTUI();
+          },
+          projectName  // pre-fill the project name from the failed attempt
+        );
       },
       () => {
         // User wants to exit
