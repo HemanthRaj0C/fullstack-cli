@@ -20,7 +20,9 @@ import path from 'path';
 let exitResolver = null;
 
 /**
- * Clean exit - cleanup and resolve the promise
+ * Clean exit - cleanup screen and exit process so terminal is fully restored.
+ * Calling process.exit(0) is required to ensure the alternate screen buffer
+ * is fully released, which restores animated shell prompts (Starship, etc.).
  */
 function exitTUI() {
   cleanup();
@@ -28,6 +30,9 @@ function exitTUI() {
     exitResolver();
     exitResolver = null;
   }
+  // Force process exit so the terminal is fully restored — without this,
+  // the alternate screen buffer may linger, breaking shell prompt animations.
+  process.exit(0);
 }
 
 /**
@@ -37,7 +42,7 @@ function exitTUI() {
  * @returns {Promise} - Resolves when TUI completes
  */
 export async function fullscreen(options = {}) {
-  const { skipBoot = true } = options; // Default to skipping boot screen
+  const { skipBoot = true } = options; // projectName is now captured inside the TUI wizard
   
   // Initialize screen
   const screen = createScreen();
@@ -47,9 +52,10 @@ export async function fullscreen(options = {}) {
     // Store the resolver for use by other functions
     exitResolver = resolve;
     
-    // Handle cleanup on exit signals
+    // Handle cleanup on exit signals — call process.exit to ensure terminal is fully restored
     const handleExit = () => {
       exitTUI();
+      process.exit(0);
     };
 
     process.on('SIGINT', handleExit);
@@ -59,13 +65,14 @@ export async function fullscreen(options = {}) {
     const startSelection = () => {
       showSelectScreen(
         async (selections) => {
-          // User completed selection, start generation
+          // User completed selection — projectName is part of selections now
           await runGeneration(selections);
         },
         () => {
           // User cancelled
           exitTUI();
-        }
+        },
+        options.initialProjectName  // pre-fill project name if provided via CLI arg
       );
     };
 
@@ -86,12 +93,16 @@ export async function fullscreen(options = {}) {
 /**
  * Run the generation process with progress UI
  */
-async function runGeneration(selections) {
+async function runGeneration(selections, options = {}) {
   const progressUI = showProgressScreen();
   
   // Set environment flag for TUI mode
   const previousTuiFlag = process.env.CREATE_FS_TUI;
   process.env.CREATE_FS_TUI = '1';
+
+  // projectName comes from selections (captured inside TUI wizard)
+  const projectName = selections.projectName?.trim() || options.projectName?.trim() || 'my-fullstack-app';
+  const projectPath = path.join(process.cwd(), projectName);
 
   try {
     const { normalized } = normalizeStackSelection({
@@ -99,9 +110,6 @@ async function runGeneration(selections) {
       backend: selections.backend,
       database: selections.database,
     });
-
-    const projectName = 'my-fullstack-app';
-    const projectPath = path.join(process.cwd(), projectName);
 
     progressUI.addLog(`Creating project: ${projectName}`, 'info', 'frontend');
     progressUI.addLog(
@@ -220,7 +228,6 @@ async function runGeneration(selections) {
 
   } catch (err) {
     // Cleanup on failure
-    const projectPath = path.join(process.cwd(), 'my-fullstack-app');
     if (await fs.pathExists(projectPath)) {
       progressUI.addLog('Cleaning up failed project...', 'warning', 'frontend');
       try {
@@ -258,7 +265,7 @@ async function runGeneration(selections) {
         const startSelection = () => {
           showSelectScreen(
             async (selections) => {
-              await runGeneration(selections);
+              await runGeneration(selections, { projectName });
             },
             () => {
               exitTUI();

@@ -24,6 +24,7 @@ export function getFrontendChoices() {
 }
 
 export function getBackendChoices(frontend) {
+  // Show nextjs-api only when Next.js frontend is chosen
   return BACKEND_CHOICES.filter((choice) => {
     if (choice.value !== 'nextjs-api') {
       return true;
@@ -33,14 +34,12 @@ export function getBackendChoices(frontend) {
 }
 
 export function getDatabaseChoices(backend) {
-  if (backend === 'nextjs-api') {
-    return [{ name: 'None', value: 'none' }];
-  }
-
+  // FastAPI doesn't support MySQL
   if (backend === 'fastapi') {
     return DATABASE_CHOICES.filter((choice) => choice.value !== 'mysql');
   }
 
+  // All other backends (including nextjs-api) support all databases
   return DATABASE_CHOICES;
 }
 
@@ -50,11 +49,6 @@ export function normalizeStackSelection(answers) {
 
   if (normalized.backend === 'nextjs-api' && normalized.frontend !== 'nextjs') {
     throw new Error('Next.js API Routes can only be used with Next.js frontend.');
-  }
-
-  if (normalized.backend === 'nextjs-api' && normalized.database !== 'none') {
-    warnings.push('Next.js API Routes is integrated mode. Database selection changed to None.');
-    normalized.database = 'none';
   }
 
   if (normalized.backend === 'fastapi' && normalized.database === 'mysql') {

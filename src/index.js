@@ -9,7 +9,8 @@ import { fullscreen } from './ui/blessed/index.js';
 const program = new Command();
 const isTuiMode = process.argv.includes('--tui');
 
-// If --tui is passed directly (without 'create' command), launch TUI
+// If --tui is passed directly (without 'create' command), launch TUI immediately
+// The project name is now captured as step 1 inside the TUI wizard (no pre-prompt)
 if (isTuiMode && !process.argv.includes('create')) {
   await fullscreen();
   process.exit(0);
@@ -38,14 +39,16 @@ program
   .option('--tui', 'Launch fullscreen TUI wizard')
   .action(async (projectName, commandOptions) => {
     if (commandOptions.tui) {
-      await fullscreen();
+      // Launch TUI — project name step is inside the TUI now
+      // (if projectName was given via CLI, it's pre-filled as initial value)
+      await fullscreen({ initialProjectName: projectName });
       return;
     }
 
     await createProject(projectName);
   });
 
-// Handle top-level --tui option
+// Handle top-level --tui option (when user runs `create-fs-cli --tui`)
 program.action(async (options) => {
   if (options.tui) {
     await fullscreen();
