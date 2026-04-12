@@ -6,6 +6,7 @@ import fs from 'fs-extra';
 import { injectBackendStatus } from './backendStatus.js';
 
 const SCAFFOLD_TIMEOUT_MS = 8 * 60 * 1000;
+const SCAFFOLD_HEARTBEAT_MS = 4 * 1000;
 const UNEXPECTED_DEV_SERVER_PATTERNS = [
   /starting dev server/i,
   /\bVITE\s+v\d/i,
@@ -173,6 +174,31 @@ async function runScaffoldCommand(label, command, args, cwd, logger) {
   let combinedOutput = '';
   let detectedUnexpectedDevServer = false;
   const tuiMode = isTuiMode();
+  const startedAt = Date.now();
+  let lastActivityAt = startedAt;
+
+  const spinner = tuiMode
+    ? null
+    : ora({
+        text: `Scaffolding ${label}...`,
+        color: 'red',
+        spinner: 'dots',
+        indent: 2,
+      }).start();
+
+  const heartbeat = spinner
+    ? setInterval(() => {
+        const elapsedSeconds = Math.floor((Date.now() - startedAt) / 1000);
+        const idleMs = Date.now() - lastActivityAt;
+        if (idleMs >= SCAFFOLD_HEARTBEAT_MS) {
+          spinner.text = `Scaffolding ${label}... (${elapsedSeconds}s elapsed)`;
+        }
+      }, SCAFFOLD_HEARTBEAT_MS)
+    : null;
+
+  if (heartbeat?.unref) {
+    heartbeat.unref();
+  }
 
   const subprocess = execa(command, args, {
     cwd,
@@ -189,6 +215,7 @@ async function runScaffoldCommand(label, command, args, cwd, logger) {
     subprocess.all.on('data', (chunk) => {
       const text = chunk.toString();
       combinedOutput += text;
+      lastActivityAt = Date.now();
       
       // In TUI mode, only log meaningful lines
       if (tuiMode && logger) {
@@ -204,8 +231,15 @@ async function runScaffoldCommand(label, command, args, cwd, logger) {
           return false;
         });
         lines.forEach(line => logger(line.trim(), 'info'));
-      } else if (!tuiMode) {
-        // Output completely suppressed in non-TUI mode to let the animated spinner run cleanly
+      } else if (!tuiMode && spinner) {
+        // Keep non-TUI output compact while still showing real progress.
+        const lines = text.split('\n');
+        for (const line of lines) {
+          const progressLine = extractScaffoldProgressLine(line);
+          if (progressLine) {
+            spinner.text = truncateForTerminal(progressLine, 96);
+          }
+        }
       }
 
       if (!detectedUnexpectedDevServer && hasUnexpectedDevServerOutput(text)) {
@@ -218,12 +252,20 @@ async function runScaffoldCommand(label, command, args, cwd, logger) {
   try {
     await subprocess;
 
+    if (spinner) {
+      spinner.succeed(chalk.dim(`${label} scaffold complete`));
+    }
+
     if (detectedUnexpectedDevServer || hasUnexpectedDevServerOutput(combinedOutput)) {
       throw new Error(
         `${label} scaffolding unexpectedly started a dev server. Please retry and choose non-interactive options.`
       );
     }
   } catch (error) {
+    if (spinner) {
+      spinner.fail(chalk.red(`${label} scaffold failed`));
+    }
+
     if (detectedUnexpectedDevServer || hasUnexpectedDevServerOutput(combinedOutput)) {
       throw new Error(
         `${label} scaffolding unexpectedly started a dev server. Aborted to continue full-stack generation.`
@@ -235,11 +277,39 @@ async function runScaffoldCommand(label, command, args, cwd, logger) {
     }
 
     throw error;
+  } finally {
+    if (heartbeat) {
+      clearInterval(heartbeat);
+    }
   }
 }
 
 function hasUnexpectedDevServerOutput(output) {
   return UNEXPECTED_DEV_SERVER_PATTERNS.some((pattern) => pattern.test(output));
+}
+
+function extractScaffoldProgressLine(line) {
+  const cleaned = stripAnsi(line).replace(/\r/g, '').trim();
+  if (!cleaned) return null;
+
+  // Ignore noisy lines that don't help users understand progress.
+  if (/^npm (warn|notice|http)/i.test(cleaned)) return null;
+  if (/^[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]+/.test(cleaned)) return null;
+
+  const importantPattern = /(create|creating|download|fetch|install|resolve|template|scaffold|success|done|complete|added|dependencies|error|fail)/i;
+  if (!importantPattern.test(cleaned)) return null;
+
+  return cleaned;
+}
+
+function truncateForTerminal(text, maxLen = 96) {
+  if (text.length <= maxLen) return text;
+  if (maxLen <= 3) return '.'.repeat(maxLen);
+  return text.slice(0, maxLen - 3) + '...';
+}
+
+function stripAnsi(value) {
+  return value.replace(/\x1B\[[0-9;]*[A-Za-z]/g, '');
 }
 
 async function runFrameworkScaffold(label, attempts, projectPath, logger) {
