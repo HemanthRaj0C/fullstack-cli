@@ -1,7 +1,7 @@
 /**
  * Select Screen - Framework selection wizard with cyberpunk-style layout
  * Features: Left sidebar navigation, dynamic preview, animated cursor
- * Step 0: project name input (themed), then frontend → backend → database
+ * Step 0: project name input (themed), then frontend → language → backend → database
  */
 
 import blessed from 'blessed';
@@ -9,7 +9,7 @@ import fs from 'fs-extra';
 import path from 'path';
 import { colors, icons, labels } from '../theme.js';
 import { getScreen, render } from '../screen.js';
-import { getFrontendChoices, getBackendChoices, getDatabaseChoices } from '../../../utils/stack.js';
+import { getFrontendChoices, getLanguageChoices, getBackendChoices, getDatabaseChoices } from '../../../utils/stack.js';
 
 // Animation frames
 const CURSOR_FRAMES = [icons.arrow, '▹', icons.arrow, '▹'];
@@ -38,13 +38,14 @@ export function showSelectScreen(onComplete, onCancel, initialProjectName) {
 
   // ──────────────────────────────────────────────────
   // State
-  // step: 'projectName' | 'frontend' | 'backend' | 'database'
+  // step: 'projectName' | 'frontend' | 'language' | 'backend' | 'database'
   // ──────────────────────────────────────────────────
   let step = 'projectName';
   let selectedIndex = 0;
   let selections = {
     projectName: initialProjectName || '',
     frontend: null,
+    language: null,
     backend: null,
     database: null,
     overwriteExisting: false,
@@ -263,6 +264,7 @@ export function showSelectScreen(onComplete, onCancel, initialProjectName) {
 
   function getChoices() {
     if (step === 'frontend') return getFrontendChoices();
+    if (step === 'language') return getLanguageChoices(selections.frontend);
     if (step === 'backend') return getBackendChoices(selections.frontend);
     if (step === 'database') return getDatabaseChoices(selections.backend);
     return [];
@@ -272,18 +274,20 @@ export function showSelectScreen(onComplete, onCancel, initialProjectName) {
     switch (step) {
       case 'projectName': return 1;
       case 'frontend':    return 2;
-      case 'backend':     return 3;
-      case 'database':    return 4;
+      case 'language':    return 3;
+      case 'backend':     return 4;
+      case 'database':    return 5;
       default:            return 1;
     }
   }
 
-  function getTotalSteps() { return 4; }
+  function getTotalSteps() { return 5; }
 
   function getQuestion() {
     switch (step) {
       case 'projectName': return 'Name your project';
       case 'frontend':    return 'Pick your frontend';
+      case 'language':    return 'Pick frontend language';
       case 'backend':     return 'Pick your backend';
       case 'database':    return 'Pick your database';
       default:            return 'Pick an option';
@@ -445,6 +449,7 @@ export function showSelectScreen(onComplete, onCancel, initialProjectName) {
     const categories = [
       { id: 'projectName', label: 'Project',  icon: icons.folder },
       { id: 'frontend',    label: labels.frontend,  icon: icons.frontend },
+      { id: 'language',    label: labels.language,  icon: icons.file },
       { id: 'backend',     label: labels.backend,   icon: icons.backend  },
       { id: 'database',    label: labels.database,  icon: icons.database },
     ];
@@ -456,6 +461,7 @@ export function showSelectScreen(onComplete, onCancel, initialProjectName) {
       const isDone =
         (cat.id === 'projectName' && selections.projectName) ||
         (cat.id === 'frontend'    && selections.frontend)    ||
+        (cat.id === 'language'    && selections.language)    ||
         (cat.id === 'backend'     && selections.backend)     ||
         (cat.id === 'database'    && selections.database);
 
@@ -481,6 +487,8 @@ export function showSelectScreen(onComplete, onCancel, initialProjectName) {
         content += `\n  {gray-fg}└{/gray-fg} {white-fg}${ellipsize(selections.projectName, sidebarValueWidth)}{/white-fg}`;
       } else if (cat.id === 'frontend' && selections.frontend) {
         content += `\n  {gray-fg}└{/gray-fg} {white-fg}${ellipsize(getDisplayName(selections.frontend), sidebarValueWidth)}{/white-fg}`;
+      } else if (cat.id === 'language' && selections.language) {
+        content += `\n  {gray-fg}└{/gray-fg} {white-fg}${ellipsize(getDisplayName(selections.language), sidebarValueWidth)}{/white-fg}`;
       } else if (cat.id === 'backend' && selections.backend) {
         content += `\n  {gray-fg}└{/gray-fg} {white-fg}${ellipsize(getDisplayName(selections.backend), sidebarValueWidth)}{/white-fg}`;
       } else if (cat.id === 'database' && selections.database) {
@@ -498,6 +506,8 @@ export function showSelectScreen(onComplete, onCancel, initialProjectName) {
       'nextjs':       'Next.js',
       'react-vite':   'React + Vite',
       'svelte':       'SvelteKit',
+      'js':           'JavaScript',
+      'ts':           'TypeScript',
       'nextjs-api':   'Next.js API',
       'express':      'Express',
       'fastify':      'Fastify',
@@ -555,6 +565,7 @@ export function showSelectScreen(onComplete, onCancel, initialProjectName) {
     const hoveredValue = typeof hoveredChoice === 'string' ? hoveredChoice : hoveredChoice?.value;
 
     const effectiveFrontend = step === 'frontend' ? hoveredValue : selections.frontend;
+    const effectiveLanguage = step === 'language' ? hoveredValue : selections.language;
     const effectiveBackend  = step === 'backend'  ? hoveredValue : selections.backend;
     const effectiveDatabase = step === 'database' ? hoveredValue : selections.database;
 
@@ -581,10 +592,19 @@ export function showSelectScreen(onComplete, onCancel, initialProjectName) {
       content += `{red-fg}frontend:{/red-fg}  {gray-fg}pending...{/gray-fg}\n`;
     }
 
+    // Frontend language
+    if (effectiveLanguage) {
+      content += `{red-fg}language:{/red-fg}  {red-fg}${ellipsize(getDisplayName(effectiveLanguage), previewValueWidth)}{/red-fg}\n`;
+    } else if (selections.frontend) {
+      content += `{red-fg}language:{/red-fg}  {gray-fg}pending...{/gray-fg}\n`;
+    } else {
+      content += `{red-fg}language:{/red-fg}  {gray-fg}---{/gray-fg}\n`;
+    }
+
     // Backend
     if (effectiveBackend) {
       content += `{red-fg}backend:{/red-fg}   {red-fg}${ellipsize(getDisplayName(effectiveBackend), previewValueWidth)}{/red-fg}\n`;
-    } else if (selections.frontend) {
+    } else if (selections.language) {
       content += `{red-fg}backend:{/red-fg}   {gray-fg}pending...{/gray-fg}\n`;
     } else {
       content += `{red-fg}backend:{/red-fg}   {gray-fg}---{/gray-fg}\n`;
@@ -841,6 +861,13 @@ export function showSelectScreen(onComplete, onCancel, initialProjectName) {
 
     if (step === 'frontend') {
       selections.frontend = value;
+      selections.language = null;
+      selections.backend = null;
+      selections.database = null;
+      step = 'language';
+      selectedIndex = 0;
+    } else if (step === 'language') {
+      selections.language = value;
       selections.backend = null;
       selections.database = null;
       step = 'backend';
@@ -870,9 +897,16 @@ export function showSelectScreen(onComplete, onCancel, initialProjectName) {
   function handleBack() {
     if (!isActive) return;
 
-    if (step === 'backend') {
+    if (step === 'language') {
       step = 'frontend';
       selections.frontend = null;
+      selections.language = null;
+      selections.backend = null;
+      selections.database = null;
+      selectedIndex = 0;
+    } else if (step === 'backend') {
+      step = 'language';
+      selections.language = null;
       selections.backend = null;
       selections.database = null;
       selectedIndex = 0;
@@ -884,6 +918,10 @@ export function showSelectScreen(onComplete, onCancel, initialProjectName) {
     } else if (step === 'frontend') {
       // Go back to project name step
       selections.projectName = '';
+      selections.frontend = null;
+      selections.language = null;
+      selections.backend = null;
+      selections.database = null;
       selections.overwriteExisting = false;
       selections.overwriteConfirmedAt = null;
       step = 'projectName';

@@ -12,79 +12,95 @@ const UNEXPECTED_DEV_SERVER_PATTERNS = [
   /\bVITE\s+v\d/i,
   /\bLocal:\s+http:\/\/localhost:\d+/i
 ];
-const FRONTEND_SCAFFOLD_ATTEMPTS = {
-  nextjs: [
-    {
-      command: 'npx',
-      args: [
-        '--yes',
-        'create-next-app@latest',
-        'frontend',
-        '--yes',
-        '--use-npm',
-        '--js',
-        '--eslint',
-        '--app'
-      ]
-    }
-  ],
-  'react-vite': [
-    {
-      command: 'npx',
-      args: ['--yes', 'create-vite@latest', 'frontend', '--template', 'react', '--no-interactive']
-    },
-    {
-      command: 'npx',
-      args: ['--yes', 'create-vite@latest', 'frontend', '-t', 'react', '--no-interactive']
-    }
-  ],
-  svelte: [
-    {
-      command: 'npx',
-      args: ['--yes', 'sv@latest', 'create', 'frontend', '--template', 'minimal', '--types', 'jsdoc', '--no-install', '--no-add-ons', '--no-dir-check', '--no-download-check']
-    },
-    {
-      command: 'npx',
-      args: ['--yes', 'sv@latest', 'create', 'frontend', '--template', 'minimal', '--types', 'jsdoc', '--no-install', '--no-add-ons']
-    }
-  ]
-};
+
+function getFrontendScaffoldAttempts(frontend, language = 'js') {
+  const resolvedLanguage = language === 'ts' ? 'ts' : 'js';
+
+  if (frontend === 'nextjs') {
+    return [
+      {
+        command: 'npx',
+        args: [
+          '--yes',
+          'create-next-app@latest',
+          'frontend',
+          '--yes',
+          '--use-npm',
+          resolvedLanguage === 'ts' ? '--ts' : '--js',
+          '--eslint',
+          '--app'
+        ]
+      }
+    ];
+  }
+
+  if (frontend === 'react-vite') {
+    const viteTemplate = resolvedLanguage === 'ts' ? 'react-ts' : 'react';
+    return [
+      {
+        command: 'npx',
+        args: ['--yes', 'create-vite@latest', 'frontend', '--template', viteTemplate, '--no-interactive']
+      },
+      {
+        command: 'npx',
+        args: ['--yes', 'create-vite@latest', 'frontend', '-t', viteTemplate, '--no-interactive']
+      }
+    ];
+  }
+
+  if (frontend === 'svelte') {
+    const svelteTypes = resolvedLanguage === 'ts' ? 'ts' : 'jsdoc';
+    return [
+      {
+        command: 'npx',
+        args: ['--yes', 'sv@latest', 'create', 'frontend', '--template', 'minimal', '--types', svelteTypes, '--no-install', '--no-add-ons', '--no-dir-check', '--no-download-check']
+      },
+      {
+        command: 'npx',
+        args: ['--yes', 'sv@latest', 'create', 'frontend', '--template', 'minimal', '--types', svelteTypes, '--no-install', '--no-add-ons']
+      }
+    ];
+  }
+
+  return [];
+}
 
 export async function generateFrontend(answers, projectPath) {
-  const { frontend } = answers;
+  const { frontend, language = 'js' } = answers;
   const backendHealthUrl = answers.backend === 'nextjs-api' ? '/api/health' : 'http://localhost:5000/api/health';
   const logger = createScopedLogger(answers.__log, 'frontend');
   const tuiMode = isTuiMode();
+  const languageLabel = getLanguageDisplayName(language);
 
   if (!tuiMode) {
-    logger(`  ${chalk.dim('›')} ${chalk.dim('Setting up')} ${chalk.white(frontend)}`);
+    logger(`  ${chalk.dim('›')} ${chalk.dim('Setting up')} ${chalk.white(frontend)} ${chalk.dim(`(${languageLabel})`)}`);
   }
 
   switch (frontend) {
     case 'nextjs':
-      await generateNextJS(answers, projectPath, backendHealthUrl, logger);
+      await generateNextJS(answers, projectPath, backendHealthUrl, logger, language);
       break;
     case 'react-vite':
-      await generateReactVite(answers, projectPath, backendHealthUrl, logger);
+      await generateReactVite(answers, projectPath, backendHealthUrl, logger, language);
       break;
     case 'svelte':
-      await generateSvelte(answers, projectPath, backendHealthUrl, logger);
+      await generateSvelte(answers, projectPath, backendHealthUrl, logger, language);
       break;
     default:
       throw new Error(`Unsupported frontend: ${frontend}`);
   }
 }
 
-async function generateNextJS(answers, projectPath, backendHealthUrl, logger) {
+async function generateNextJS(answers, projectPath, backendHealthUrl, logger, language) {
   const tuiMode = isTuiMode();
   if (!tuiMode) {
-    logger(chalk.gray('  › Running create-next-app in non-interactive mode...\n'));
+    logger(chalk.gray(`  › Running create-next-app (${getLanguageDisplayName(language)}) in non-interactive mode...\n`));
   }
   
   try {
     await runFrameworkScaffold(
       'Next.js',
-      FRONTEND_SCAFFOLD_ATTEMPTS.nextjs,
+      getFrontendScaffoldAttempts('nextjs', language),
       projectPath,
       logger
     );
@@ -107,16 +123,16 @@ async function generateNextJS(answers, projectPath, backendHealthUrl, logger) {
   }
 }
 
-async function generateReactVite(answers, projectPath, backendHealthUrl, logger) {
+async function generateReactVite(answers, projectPath, backendHealthUrl, logger, language) {
   const tuiMode = isTuiMode();
   if (!tuiMode) {
-    logger(chalk.gray('  › Running create-vite in non-interactive mode...\n'));
+    logger(chalk.gray(`  › Running create-vite (${getLanguageDisplayName(language)}) in non-interactive mode...\n`));
   }
   
   try {
     await runFrameworkScaffold(
       'Vite',
-      FRONTEND_SCAFFOLD_ATTEMPTS['react-vite'],
+      getFrontendScaffoldAttempts('react-vite', language),
       projectPath,
       logger
     );
@@ -138,16 +154,16 @@ async function generateReactVite(answers, projectPath, backendHealthUrl, logger)
   }
 }
 
-async function generateSvelte(answers, projectPath, backendHealthUrl, logger) {
+async function generateSvelte(answers, projectPath, backendHealthUrl, logger, language) {
   const tuiMode = isTuiMode();
   if (!tuiMode) {
-    logger(chalk.gray('  › Running Svelte scaffold with compatibility fallbacks...\n'));
+    logger(chalk.gray(`  › Running Svelte scaffold (${getLanguageDisplayName(language)}) with compatibility fallbacks...\n`));
   }
   
   try {
     await runFrameworkScaffold(
       'SvelteKit',
-      FRONTEND_SCAFFOLD_ATTEMPTS.svelte,
+      getFrontendScaffoldAttempts('svelte', language),
       projectPath,
       logger
     );
@@ -414,4 +430,8 @@ function createScopedLogger(externalLogger, phase) {
 
 function isTuiMode() {
   return process.env.CREATE_FS_TUI === '1';
+}
+
+function getLanguageDisplayName(language) {
+  return language === 'ts' ? 'TypeScript' : 'JavaScript';
 }

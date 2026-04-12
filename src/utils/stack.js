@@ -4,6 +4,11 @@ const FRONTEND_CHOICES = [
   { name: 'SvelteKit', value: 'svelte' }
 ];
 
+const FRONTEND_LANGUAGE_CHOICES = [
+  { name: 'JavaScript', value: 'js' },
+  { name: 'TypeScript', value: 'ts' }
+];
+
 const BACKEND_CHOICES = [
   { name: 'Next.js API Routes (integrated)', value: 'nextjs-api' },
   { name: 'Express', value: 'express' },
@@ -21,6 +26,14 @@ const DATABASE_CHOICES = [
 
 export function getFrontendChoices() {
   return FRONTEND_CHOICES;
+}
+
+export function getLanguageChoices(frontend) {
+  // Keep the signature flexible in case certain frameworks gain custom constraints later.
+  if (!frontend) {
+    return FRONTEND_LANGUAGE_CHOICES;
+  }
+  return FRONTEND_LANGUAGE_CHOICES;
 }
 
 export function getBackendChoices(frontend) {
@@ -50,6 +63,15 @@ export function getDatabaseChoices(backend) {
 export function normalizeStackSelection(answers) {
   const normalized = { ...answers };
   const warnings = [];
+
+  if (!normalized.language) {
+    normalized.language = 'js';
+  }
+
+  if (!['js', 'ts'].includes(normalized.language)) {
+    warnings.push('Unsupported frontend language selected. Language changed to JavaScript.');
+    normalized.language = 'js';
+  }
 
   if (normalized.backend === 'nextjs-api' && normalized.frontend !== 'nextjs') {
     throw new Error('Next.js API Routes can only be used with Next.js frontend.');

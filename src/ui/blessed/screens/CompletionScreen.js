@@ -151,6 +151,8 @@ export function showCompletionScreen(options, onExit) {
       'nextjs': 'Next.js',
       'react-vite': 'React + Vite',
       'svelte': 'SvelteKit',
+      'js': 'JavaScript',
+      'ts': 'TypeScript',
       'nextjs-api': 'Next.js API',
       'express': 'Express.js',
       'fastify': 'Fastify',
@@ -167,11 +169,12 @@ export function showCompletionScreen(options, onExit) {
   function renderBanner() {
     const sparkle = sparkles[sparkleFrame % sparkles.length];
     const nameDisplay = ellipsize(projectName, Math.max(12, screenWidth - 20));
+    const frontendLanguageSuffix = selections.language ? ` (${getDisplayName(selections.language)})` : '';
     
     let content = '';
     content += `{#ff0000-fg}{bold}${sparkle} ${labels.successBanner} ${sparkle}{/bold}{/#ff0000-fg}\n\n`;
     content += `{gray-fg}Project:{/gray-fg}  {#ffffff-fg}{bold}${nameDisplay}{/bold}{/#ffffff-fg}\n`;
-    content += `{gray-fg}Stack:{/gray-fg}    {#ff0000-fg}${getDisplayName(selections.frontend)}{/#ff0000-fg}`;
+    content += `{gray-fg}Stack:{/gray-fg}    {#ff0000-fg}${getDisplayName(selections.frontend)}${frontendLanguageSuffix}{/#ff0000-fg}`;
     content += ` {gray-fg}+{/gray-fg} {#ff0000-fg}${getDisplayName(selections.backend)}{/#ff0000-fg}`;
     if (selections.database && selections.database !== 'none') {
       content += ` {gray-fg}+{/gray-fg} {#ff0000-fg}${getDisplayName(selections.database)}{/#ff0000-fg}`;
@@ -255,7 +258,10 @@ export function showCompletionScreen(options, onExit) {
     content += `   {#ff0000-fg}${projectDirDisplay}{/#ff0000-fg}\n`;
     
     // Build tree structure with consistent spacing - color entire lines
-    const frontendLine = ellipsize(`|-- frontend/      # ${getDisplayName(selections.frontend)} app`, treeWidth);
+    const frontendFlavor = selections.language
+      ? `${getDisplayName(selections.frontend)} (${getDisplayName(selections.language)})`
+      : getDisplayName(selections.frontend);
+    const frontendLine = ellipsize(`|-- frontend/      # ${frontendFlavor} app`, treeWidth);
     content += `{#7a7a7a-fg}   ${frontendLine}{/#7a7a7a-fg}\n`;
     
     if (isSeparateBackend) {

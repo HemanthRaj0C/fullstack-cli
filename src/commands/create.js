@@ -18,6 +18,7 @@ import {
 import { restoreTerminalState } from '../utils/terminal.js';
 import {
   getFrontendChoices,
+  getLanguageChoices,
   getBackendChoices,
   getDatabaseChoices,
   normalizeStackSelection
@@ -159,6 +160,16 @@ export async function createProject(projectName, options = {}) {
       },
       {
         type: 'list',
+        name: 'language',
+        message: chalk.white('Frontend language') + chalk.dim(' ·'),
+        prefix: chalk.red(ICONS.pointer),
+        choices: (currentAnswers) => getLanguageChoices(currentAnswers.frontend).map(c => ({
+          ...c,
+          name: `${chalk.white(c.name)}`,
+        })),
+      },
+      {
+        type: 'list',
         name: 'backend',
         message: chalk.white('Backend framework') + chalk.dim(' ·'),
         prefix: chalk.red(ICONS.pointer),
@@ -196,6 +207,7 @@ export async function createProject(projectName, options = {}) {
     // ─── Stack summary ─────────────────────────────────────
     const displayNames = {
       'nextjs': 'Next.js', 'react-vite': 'React + Vite', 'svelte': 'SvelteKit',
+      'js': 'JavaScript', 'ts': 'TypeScript',
       'nextjs-api': 'Next.js API', 'express': 'Express', 'fastify': 'Fastify', 'fastapi': 'FastAPI',
       'postgres': 'PostgreSQL', 'mongodb': 'MongoDB', 'mysql': 'MySQL', 'supabase': 'Supabase', 'none': 'None',
     };
@@ -205,6 +217,7 @@ export async function createProject(projectName, options = {}) {
       `${chalk.white.bold(answers.projectName)}`,
       '',
       `${chalk.dim('├─')} Frontend   ${chalk.red(dn(answers.frontend))}`,
+      `${chalk.dim('├─')} Language   ${chalk.red(dn(answers.language))}`,
       `${chalk.dim('├─')} Backend    ${chalk.red(dn(answers.backend))}`,
       `${chalk.dim('└─')} Database   ${chalk.red(dn(answers.database))}`,
     ];
@@ -232,9 +245,9 @@ export async function createProject(projectName, options = {}) {
     stepResult('Project Directory', answers.projectName);
 
     // ─── Step 3: Frontend ──────────────────────────────────
-    sectionHeader(`Frontend Setup ${chalk.dim('· ' + dn(answers.frontend))}`);
+    sectionHeader(`Frontend Setup ${chalk.dim('· ' + dn(answers.frontend) + ' (' + dn(answers.language) + ')')}`);
     await generateFrontend(answers, projectPath);
-    stepResult('Frontend Setup', `${dn(answers.frontend)} ready`);
+    stepResult('Frontend Setup', `${dn(answers.frontend)} (${dn(answers.language)}) ready`);
 
     // ─── Step 4: Backend ───────────────────────────────────
     if (answers.backend !== 'nextjs-api') {
@@ -297,6 +310,13 @@ async function cleanupFailedProject(projectPath) {
 }
 
 async function createRootFiles(answers, projectPath) {
+  const frontendName = answers.frontend === 'nextjs'
+    ? 'Next.js'
+    : answers.frontend === 'react-vite'
+      ? 'React + Vite'
+      : 'SvelteKit';
+  const frontendLanguage = answers.language === 'ts' ? 'TypeScript' : 'JavaScript';
+
   // Create root .gitignore
   const gitignore = `# Dependencies
 node_modules/
@@ -333,7 +353,7 @@ Thumbs.db
 Full-stack application generated with FullStack CLI.
 
 ## Stack
-- **Frontend**: ${answers.frontend === 'nextjs' ? 'Next.js' : answers.frontend === 'react-vite' ? 'React + Vite' : 'Svelte'}
+- **Frontend**: ${frontendName} (${frontendLanguage})
 - **Backend**: ${answers.backend === 'nextjs-api' ? 'Next.js API Routes' : answers.backend === 'express' ? 'Express' : answers.backend === 'fastify' ? 'Fastify' : 'FastAPI'}
 - **Database**: ${answers.database === 'none' ? 'None' : answers.database.charAt(0).toUpperCase() + answers.database.slice(1)}
 

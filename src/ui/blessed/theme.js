@@ -184,6 +184,7 @@ export const labels = {
   
   // Categories
   frontend: 'Frontend',
+  language: 'Language',
   backend: 'Backend',
   database: 'Database',
   

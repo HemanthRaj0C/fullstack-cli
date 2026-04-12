@@ -40,6 +40,9 @@ Local Development:
   node src/index.js my-app
   node src/index.js my-app --tui
 
+Frontend Language:
+  Wizard prompts let you choose JavaScript or TypeScript for frontend scaffolding
+
 Project Name Rules:
   Allowed: letters, numbers, dashes (-), underscores (_)
   Must start with: a letter or number

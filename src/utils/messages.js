@@ -5,10 +5,12 @@ import gradient from 'gradient-string';
 const btopGradient = gradient(['#ff3333', '#cc0000']);
 
 export function showSuccessMessage(answers) {
-  const { projectName, frontend, backend, database } = answers;
+  const { projectName, frontend, language = 'js', backend, database } = answers;
   
-  const frontendName = frontend === 'nextjs' ? 'Next.js' : 
-                       frontend === 'react-vite' ? 'React + Vite' : 'SvelteKit';
+  const frontendBaseName = frontend === 'nextjs' ? 'Next.js' : 
+                           frontend === 'react-vite' ? 'React + Vite' : 'SvelteKit';
+  const languageName = language === 'ts' ? 'TypeScript' : 'JavaScript';
+  const frontendName = `${frontendBaseName} (${languageName})`;
   
   const backendName = backend === 'nextjs-api' ? 'Next.js API Routes' :
                       backend === 'express' ? 'Express' :

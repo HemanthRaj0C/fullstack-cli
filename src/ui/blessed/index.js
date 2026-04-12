@@ -109,13 +109,14 @@ async function runGeneration(selections, options = {}) {
   try {
     const { normalized } = normalizeStackSelection({
       frontend: selections.frontend,
+      language: selections.language,
       backend: selections.backend,
       database: selections.database,
     });
 
     progressUI.addLog(`Creating project: ${projectName}`, 'info', 'frontend');
     progressUI.addLog(
-      `Stack: ${normalized.frontend} + ${normalized.backend}${normalized.database !== 'none' ? ` + ${normalized.database}` : ''}`,
+      `Stack: ${normalized.frontend} (${normalized.language}) + ${normalized.backend}${normalized.database !== 'none' ? ` + ${normalized.database}` : ''}`,
       'info',
       'frontend'
     );
@@ -166,6 +167,7 @@ async function runGeneration(selections, options = {}) {
       await generateFrontend(
         {
           frontend: normalized.frontend,
+          language: normalized.language,
           backend: normalized.backend,
           __log: (msg, type, phase) => {
             const cleanMsg = cleanLogMessage(msg);

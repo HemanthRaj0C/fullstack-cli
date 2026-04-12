@@ -93,13 +93,14 @@ If a name cannot be sanitized into a valid value, the CLI exits with a clear err
 
 - `--tui`: fullscreen wizard with guided selections, overwrite confirmation, and live generation progress.
 - Classic mode: standard terminal prompts.
+- Both modes include explicit frontend language selection (`JavaScript` or `TypeScript`).
 
 Both modes enforce the same stack validation rules and generation behavior.
 
 ## Features
 
 - Fullscreen TUI and classic prompt mode.
-- Frontend: Next.js, React + Vite, SvelteKit.
+- Frontend: Next.js, React + Vite, SvelteKit (`JavaScript` or `TypeScript`).
 - Backend: Next.js API Routes (integrated), Express, Fastify, FastAPI.
 - Database: PostgreSQL, MongoDB, MySQL, Supabase, None.
 - Safe overwrite confirmation before deleting existing directories.
