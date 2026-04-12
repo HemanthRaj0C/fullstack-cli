@@ -15,7 +15,7 @@ import { getFrontendChoices, getLanguageChoices, getBackendChoices, getDatabaseC
 const CURSOR_FRAMES = [icons.arrow, '▹', icons.arrow, '▹'];
 
 // Fixed widths
-const SIDEBAR_WIDTH = 20;
+const SIDEBAR_WIDTH = 22;
 const RED_BRIGHT = '#ff4d4d';
 const RED_DIM = '#c24b4b';
 const RED_SOFT = '#ff8a8a';
@@ -34,9 +34,11 @@ export function showSelectScreen(onComplete, onCancel, initialProjectName, initi
   const screenHeight = screen.height;
   const presetLanguage = initialLanguage === 'ts' ? 'ts' : initialLanguage === 'js' ? 'js' : null;
 
-  // Calculate panel widths (absolute pixels)
-  const middlePanelWidth = Math.floor((screenWidth - SIDEBAR_WIDTH) / 2);
-  const rightPanelWidth = screenWidth - SIDEBAR_WIDTH - middlePanelWidth;
+  // Calculate panel widths with shared borders to avoid double vertical seams.
+  // Total occupied width is w1 + w2 + w3 - 2 because adjacent borders overlap.
+  const combinedMainWidth = screenWidth - SIDEBAR_WIDTH + 2;
+  const middlePanelWidth = Math.floor(combinedMainWidth / 2);
+  const rightPanelWidth = combinedMainWidth - middlePanelWidth;
 
   // ──────────────────────────────────────────────────
   // State
@@ -116,9 +118,10 @@ export function showSelectScreen(onComplete, onCancel, initialProjectName, initi
     parent: sidebar,
     top: 0,
     left: 0,
-    width: SIDEBAR_WIDTH - 2,
+    width: SIDEBAR_WIDTH - 3,
     height: screenHeight - 8,
     tags: true,
+    wrap: false,
     padding: { left: 1, top: 1 },
   });
 
@@ -126,7 +129,7 @@ export function showSelectScreen(onComplete, onCancel, initialProjectName, initi
   const middlePanel = blessed.box({
     parent: container,
     top: 3,
-    left: SIDEBAR_WIDTH,
+    left: SIDEBAR_WIDTH - 1,
     width: middlePanelWidth,
     height: screenHeight - 6,
     border: { type: 'line' },
@@ -196,7 +199,7 @@ export function showSelectScreen(onComplete, onCancel, initialProjectName, initi
   const rightPanel = blessed.box({
     parent: container,
     top: 3,
-    left: SIDEBAR_WIDTH + middlePanelWidth,
+    left: SIDEBAR_WIDTH + middlePanelWidth - 2,
     width: rightPanelWidth,
     height: screenHeight - 6,
     label: ` ${labels.preview} `,
@@ -273,6 +276,7 @@ export function showSelectScreen(onComplete, onCancel, initialProjectName, initi
   }
 
   function getChoiceValue(choice) {
+    if (choice == null) return undefined;
     return typeof choice === 'string' ? choice : choice.value;
   }
 
@@ -455,7 +459,8 @@ export function showSelectScreen(onComplete, onCancel, initialProjectName, initi
     const categories = [
       { id: 'projectName', label: 'Project',  icon: icons.folder },
       { id: 'frontend',    label: labels.frontend,  icon: icons.frontend },
-      { id: 'language',    label: labels.language,  icon: icons.file },
+      // Use a single-width glyph to keep sidebar alignment stable across terminals.
+      { id: 'language',    label: labels.language,  icon: '◦' },
       { id: 'backend',     label: labels.backend,   icon: icons.backend  },
       { id: 'database',    label: labels.database,  icon: icons.database },
     ];
@@ -485,10 +490,11 @@ export function showSelectScreen(onComplete, onCancel, initialProjectName, initi
         icon = icons.done;
       }
 
-      content += `{${iconColor}-fg}${icon}{/${iconColor}-fg} {${labelColor}-fg}${cat.label}{/${labelColor}-fg}`;
+      const label = ellipsize(cat.label, SIDEBAR_WIDTH - 6);
+      content += `{${iconColor}-fg}${icon}{/${iconColor}-fg} {${labelColor}-fg}${label}{/${labelColor}-fg}`;
 
       // Show chosen value under category
-      const sidebarValueWidth = SIDEBAR_WIDTH - 7;
+      const sidebarValueWidth = SIDEBAR_WIDTH - 9;
       if (cat.id === 'projectName' && selections.projectName) {
         content += `\n  {gray-fg}└{/gray-fg} {white-fg}${ellipsize(selections.projectName, sidebarValueWidth)}{/white-fg}`;
       } else if (cat.id === 'frontend' && selections.frontend) {
@@ -548,16 +554,18 @@ export function showSelectScreen(onComplete, onCancel, initialProjectName, initi
   function renderChoices() {
     const choices = getChoices();
     const cursor = CURSOR_FRAMES[cursorFrame % CURSOR_FRAMES.length];
+    const choiceTextWidth = Math.max(10, middlePanelWidth - 10);
     let content = '';
 
     choices.forEach((choice, idx) => {
       const name = typeof choice === 'string' ? choice : choice.name;
+      const safeName = ellipsize(name, choiceTextWidth);
       const isSelected = idx === selectedIndex;
 
       if (isSelected) {
-        content += `{#ff4d4d-fg}${cursor}{/#ff4d4d-fg} {#ffffff-fg}{bold}${name}{/bold}{/#ffffff-fg}\n`;
+        content += `{#ff4d4d-fg}${cursor}{/#ff4d4d-fg} {#ffffff-fg}{bold}${safeName}{/bold}{/#ffffff-fg}\n`;
       } else {
-        content += `  {#c24b4b-fg}${name}{/#c24b4b-fg}\n`;
+        content += `  {#c24b4b-fg}${safeName}{/#c24b4b-fg}\n`;
       }
     });
 

@@ -98,6 +98,26 @@ npx create-fs-cli@latest "app@2026"    # sanitized to app2026
 
 If a name cannot be sanitized into a valid value, the CLI exits with a clear error and suggestion.
 
+## Positional Frontend Language Argument
+
+You can pass frontend language directly as the second positional argument:
+
+```bash
+create-fs-cli my-app ts
+create-fs-cli my-app js
+```
+
+Accepted values:
+
+- `js` or `javascript`
+- `ts` or `typescript`
+
+Argument order:
+
+```bash
+create-fs-cli [project-name] [frontend-language]
+```
+
 ## UI Modes
 
 - `--tui`: fullscreen wizard with guided selections, overwrite confirmation, and live generation progress.

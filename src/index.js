@@ -61,7 +61,11 @@ Local Development:
 
 Frontend Language:
   Use optional positional arg: js | ts
+  Shortcuts accepted: js/javascript, ts/typescript
   If omitted, wizard/prompt asks for language
+
+Argument Order:
+  create-fs-cli [project-name] [frontend-language]
 
 Project Name Rules:
   Allowed: letters, numbers, dashes (-), underscores (_)
