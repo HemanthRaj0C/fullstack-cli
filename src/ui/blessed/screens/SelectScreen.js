@@ -388,11 +388,18 @@ export function showSelectScreen(onComplete, onCancel, initialProjectName) {
         `{gray-fg}Enter = cancel{/gray-fg}`,
     });
 
-    screen.on('keypress', handleOverwriteKeypress);
-    screen.key(['enter'], handleOverwriteCancel);
-    screen.unkey(['escape'], handleEscape);
-    escapeKeySuspended = true;
-    screen.key(['escape'], handleOverwriteCancel);
+    // Bind overwrite keys on next tick so the Enter key that opened the dialog
+    // cannot immediately trigger cancel in the same input cycle.
+    process.nextTick(() => {
+      if (!overwriteDialog || !isActive || step !== 'projectName') return;
+      screen.on('keypress', handleOverwriteKeypress);
+      screen.key(['enter'], handleOverwriteCancel);
+      screen.unkey(['escape'], handleEscape);
+      escapeKeySuspended = true;
+      screen.key(['escape'], handleOverwriteCancel);
+      render();
+    });
+
     render();
   }
 
