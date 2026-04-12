@@ -11,6 +11,18 @@ import { installNonTuiTerminalGuards, restoreTerminalState } from './utils/termi
 const program = new Command();
 const isTuiMode = process.argv.includes('--tui');
 
+function normalizeFrontendLanguageArg(input) {
+  if (input == null) return null;
+
+  const value = String(input).trim().toLowerCase();
+  if (!value) return null;
+
+  if (value === 'js' || value === 'javascript') return 'js';
+  if (value === 'ts' || value === 'typescript') return 'ts';
+
+  throw new Error(`Invalid frontend language '${input}'. Use 'js' or 'ts'.`);
+}
+
 program
   .name('create-fs-cli')
   .description('Scaffold full-stack applications in classic prompts or fullscreen TUI mode')
@@ -18,6 +30,7 @@ program
   .showHelpAfterError()
   .allowExcessArguments(false)
   .argument('[project-name]', 'Project name (same validation as interactive mode)')
+  .argument('[frontend-language]', 'Optional frontend language: js | ts')
   .option('--tui', 'Launch the fullscreen TUI wizard')
   .addHelpText(
     'after',
@@ -25,23 +38,30 @@ program
 Quick Start:
   npx create-fs-cli@latest
   npx create-fs-cli@latest my-app
+  npx create-fs-cli@latest my-app ts
   npx create-fs-cli@latest my-app --tui
+  npx create-fs-cli@latest my-app ts --tui
 
 Global Install:
   npm install -g create-fs-cli
   create-fs-cli --help
   create-fs-cli my-app
+  create-fs-cli my-app ts
   create-fs-cli my-app --tui
+  create-fs-cli my-app ts --tui
 
 Local Development:
   npm install
   node src/index.js --help
   node src/index.js
   node src/index.js my-app
+  node src/index.js my-app ts
   node src/index.js my-app --tui
+  node src/index.js my-app ts --tui
 
 Frontend Language:
-  Wizard prompts let you choose JavaScript or TypeScript for frontend scaffolding
+  Use optional positional arg: js | ts
+  If omitted, wizard/prompt asks for language
 
 Project Name Rules:
   Allowed: letters, numbers, dashes (-), underscores (_)
@@ -51,13 +71,21 @@ Project Name Rules:
 `
   );
 // Main command behavior
-program.action(async (projectName, options) => {
+program.action(async (projectName, frontendLanguageArg, options) => {
+  const frontendLanguage = normalizeFrontendLanguageArg(frontendLanguageArg);
+
   if (options.tui) {
-    await fullscreen({ initialProjectName: projectName });
+    await fullscreen({
+      initialProjectName: projectName,
+      initialLanguage: frontendLanguage,
+    });
     return;
   }
+
   // Default behavior: scaffold project in classic mode
-  await createProject(projectName);
+  await createProject(projectName, {
+    answers: frontendLanguage ? { language: frontendLanguage } : undefined,
+  });
 });
 
 async function main() {

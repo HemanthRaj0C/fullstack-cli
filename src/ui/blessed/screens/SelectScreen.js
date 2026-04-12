@@ -26,11 +26,13 @@ const WHITE = '#ffffff';
  * @param {Function} onComplete - Callback with final selections (includes projectName)
  * @param {Function} onCancel  - Callback when user cancels
  * @param {string}   [initialProjectName] - Pre-filled project name (optional)
+ * @param {string}   [initialLanguage] - Pre-selected frontend language (optional: js | ts)
  */
-export function showSelectScreen(onComplete, onCancel, initialProjectName) {
+export function showSelectScreen(onComplete, onCancel, initialProjectName, initialLanguage) {
   const screen = getScreen();
   const screenWidth = screen.width;
   const screenHeight = screen.height;
+  const presetLanguage = initialLanguage === 'ts' ? 'ts' : initialLanguage === 'js' ? 'js' : null;
 
   // Calculate panel widths (absolute pixels)
   const middlePanelWidth = Math.floor((screenWidth - SIDEBAR_WIDTH) / 2);
@@ -268,6 +270,10 @@ export function showSelectScreen(onComplete, onCancel, initialProjectName) {
     if (step === 'backend') return getBackendChoices(selections.frontend);
     if (step === 'database') return getDatabaseChoices(selections.backend);
     return [];
+  }
+
+  function getChoiceValue(choice) {
+    return typeof choice === 'string' ? choice : choice.value;
   }
 
   function getStepNumber() {
@@ -562,7 +568,7 @@ export function showSelectScreen(onComplete, onCancel, initialProjectName) {
   function renderPreview() {
     const choices = getChoices();
     const hoveredChoice = choices[selectedIndex];
-    const hoveredValue = typeof hoveredChoice === 'string' ? hoveredChoice : hoveredChoice?.value;
+    const hoveredValue = getChoiceValue(hoveredChoice);
 
     const effectiveFrontend = step === 'frontend' ? hoveredValue : selections.frontend;
     const effectiveLanguage = step === 'language' ? hoveredValue : selections.language;
@@ -857,7 +863,7 @@ export function showSelectScreen(onComplete, onCancel, initialProjectName) {
 
     const choices = getChoices();
     const choice = choices[selectedIndex];
-    const value = typeof choice === 'string' ? choice : choice.value;
+    const value = getChoiceValue(choice);
 
     if (step === 'frontend') {
       selections.frontend = value;
@@ -865,7 +871,13 @@ export function showSelectScreen(onComplete, onCancel, initialProjectName) {
       selections.backend = null;
       selections.database = null;
       step = 'language';
-      selectedIndex = 0;
+      const languageChoices = getLanguageChoices(value);
+      if (presetLanguage) {
+        const presetIndex = languageChoices.findIndex((item) => getChoiceValue(item) === presetLanguage);
+        selectedIndex = presetIndex >= 0 ? presetIndex : 0;
+      } else {
+        selectedIndex = 0;
+      }
     } else if (step === 'language') {
       selections.language = value;
       selections.backend = null;
@@ -909,7 +921,13 @@ export function showSelectScreen(onComplete, onCancel, initialProjectName) {
       selections.language = null;
       selections.backend = null;
       selections.database = null;
-      selectedIndex = 0;
+      const languageChoices = getLanguageChoices(selections.frontend);
+      if (presetLanguage) {
+        const presetIndex = languageChoices.findIndex((item) => getChoiceValue(item) === presetLanguage);
+        selectedIndex = presetIndex >= 0 ? presetIndex : 0;
+      } else {
+        selectedIndex = 0;
+      }
     } else if (step === 'database') {
       step = 'backend';
       selections.backend = null;

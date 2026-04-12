@@ -42,7 +42,7 @@ function exitTUI() {
  * @returns {Promise} - Resolves when TUI completes
  */
 export async function fullscreen(options = {}) {
-  const { skipBoot = true } = options; // projectName is now captured inside the TUI wizard
+  const { skipBoot = true } = options; // projectName/language can be pre-filled via CLI args
   
   // Initialize screen
   const screen = createScreen();
@@ -72,7 +72,8 @@ export async function fullscreen(options = {}) {
           // User cancelled
           exitTUI();
         },
-        options.initialProjectName  // pre-fill project name if provided via CLI arg
+        options.initialProjectName,  // pre-fill project name if provided via CLI arg
+        options.initialLanguage      // pre-select language if provided via CLI arg
       );
     };
 
@@ -289,7 +290,8 @@ async function runGeneration(selections, options = {}) {
           () => {
             exitTUI();
           },
-          projectName  // pre-fill the project name from the failed attempt
+          projectName,        // pre-fill project name from failed attempt
+          selections.language // preserve language choice on retry
         );
       },
       () => {

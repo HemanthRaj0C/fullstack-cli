@@ -190,10 +190,29 @@ export async function createProject(projectName, options = {}) {
       }
     ];
 
-    const stackAnswers = options.answers ? { ...options.answers } : await inquirer.prompt(prompts);
+    const presetAnswers = options.answers ? { ...options.answers } : {};
+    const stackAnswers = { ...presetAnswers };
+    let askedAnyPrompt = false;
+
+    for (const prompt of prompts) {
+      const existingValue = stackAnswers[prompt.name];
+      if (existingValue !== undefined && existingValue !== null && existingValue !== '') {
+        continue;
+      }
+
+      const promptConfig = { ...prompt };
+      if (typeof promptConfig.choices === 'function') {
+        promptConfig.choices = promptConfig.choices(stackAnswers);
+      }
+
+      const answer = await inquirer.prompt([promptConfig]);
+      Object.assign(stackAnswers, answer);
+      askedAnyPrompt = true;
+    }
+
     const answers = { ...stackAnswers, projectName: providedProjectName };
 
-    if (!options.answers) {
+    if (askedAnyPrompt) {
       console.log(); // Add spacing after prompts
     }
 

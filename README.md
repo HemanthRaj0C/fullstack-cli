@@ -19,6 +19,10 @@ npx create-fs-cli@latest
 # Pass project name directly (like create-next-app)
 npx create-fs-cli@latest my-app
 
+# Pass project name + frontend language directly
+npx create-fs-cli@latest my-app ts
+npx create-fs-cli@latest my-app js
+
 # Fullscreen TUI mode (red/white interface)
 npx create-fs-cli@latest --tui
 npx create-fs-cli@latest my-app --tui
@@ -32,8 +36,10 @@ npm install -g create-fs-cli
 create-fs-cli --help
 create-fs-cli
 create-fs-cli my-app
+create-fs-cli my-app ts
 create-fs-cli --tui
 create-fs-cli my-app --tui
+create-fs-cli my-app ts --tui
 ```
 
 ### 3) Local development (this repository)
@@ -47,8 +53,10 @@ npm install
 npm run dev
 node src/index.js
 node src/index.js my-app
+node src/index.js my-app ts
 node src/index.js --tui
 node src/index.js my-app --tui
+node src/index.js my-app ts --tui
 
 # If you cd into src/
 node index.js
@@ -79,6 +87,7 @@ node src/index.js --help
 - Maximum length: 50 characters.
 - Interactive input validates immediately.
 - Direct CLI names are auto-sanitized when possible.
+- Optional second positional arg accepts frontend language (`js` or `ts`).
 
 Examples:
 
