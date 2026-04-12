@@ -16,6 +16,7 @@ program
   .description('Scaffold full-stack applications in classic prompts or fullscreen TUI mode')
   .version('1.1.1')
   .showHelpAfterError()
+  .allowExcessArguments(false)
   .argument('[project-name]', 'Project name (same validation as interactive mode)')
   .option('--tui', 'Launch the fullscreen TUI wizard')
   .addHelpText(
@@ -25,14 +26,12 @@ Quick Start:
   npx create-fs-cli@latest
   npx create-fs-cli@latest my-app
   npx create-fs-cli@latest my-app --tui
-  npx create-fs-cli@latest create --tui
 
 Global Install:
   npm install -g create-fs-cli
   create-fs-cli --help
   create-fs-cli my-app
   create-fs-cli my-app --tui
-  create-fs-cli create my-app --tui
 
 Local Development:
   npm install
@@ -40,55 +39,21 @@ Local Development:
   node src/index.js
   node src/index.js my-app
   node src/index.js my-app --tui
-  node src/index.js create my-app --tui
 
 Project Name Rules:
   Allowed: letters, numbers, dashes (-), underscores (_)
   Must start with: a letter or number
   Max length: 50
   Direct CLI args are auto-sanitized when possible (for example "My App" -> "My-App")
-
-Note:
-  The "create" subcommand is optional; both forms work:
-  create-fs-cli my-app
-  create-fs-cli create my-app
 `
   );
-
-const createCommand = program
-  .command('create')
-  .description('Create a new full-stack project (explicit subcommand)')
-  .argument('[project-name]', 'Name of the project')
-  .option('--tui', 'Launch the fullscreen TUI wizard')
-  .action(async (projectName, commandOptions) => {
-    if (commandOptions.tui) {
-      // Launch TUI — project name step is inside the TUI now
-      // (if projectName was given via CLI, it's pre-filled as initial value)
-      await fullscreen({ initialProjectName: projectName });
-      return;
-    }
-
-    await createProject(projectName);
-  });
-
-createCommand.addHelpText(
-  'after',
-  `
-Examples:
-  create-fs-cli create
-  create-fs-cli create my-app
-  create-fs-cli create my-app --tui
-  node src/index.js create my-app --tui
-`
-);
-
-// Handle top-level --tui option (when user runs `create-fs-cli --tui`)
+// Main command behavior
 program.action(async (projectName, options) => {
   if (options.tui) {
     await fullscreen({ initialProjectName: projectName });
     return;
   }
-  // Default to create command if no command specified
+  // Default behavior: scaffold project in classic mode
   await createProject(projectName);
 });
 

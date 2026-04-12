@@ -2,13 +2,6 @@
 
 Production-ready CLI for scaffolding full-stack apps in either classic prompts or fullscreen TUI mode.
 
-`create` is an optional explicit subcommand. These are equivalent:
-
-```bash
-create-fs-cli my-app
-create-fs-cli create my-app
-```
-
 ## Requirements
 
 - Node.js 18+
@@ -29,10 +22,6 @@ npx create-fs-cli@latest my-app
 # Fullscreen TUI mode (red/white interface)
 npx create-fs-cli@latest --tui
 npx create-fs-cli@latest my-app --tui
-
-# Optional explicit create command
-npx create-fs-cli@latest create my-app
-npx create-fs-cli@latest create my-app --tui
 ```
 
 ### 2) Global install (production workflow)
@@ -45,8 +34,6 @@ create-fs-cli
 create-fs-cli my-app
 create-fs-cli --tui
 create-fs-cli my-app --tui
-create-fs-cli create my-app
-create-fs-cli create my-app --tui
 ```
 
 ### 3) Local development (this repository)
@@ -80,11 +67,9 @@ create-fs-cli --tui
 
 ```bash
 create-fs-cli --help
-create-fs-cli create --help
 
 # Local development equivalents
 node src/index.js --help
-node src/index.js create --help
 ```
 
 ## Project Name Rules
