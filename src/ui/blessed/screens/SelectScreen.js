@@ -456,13 +456,13 @@ export function showSelectScreen(onComplete, onCancel, initialProjectName, initi
 
   // ── Sidebar render ──────────────────────────────────────────────
   function renderSidebar() {
+    const sharedRowIcon = '•';
     const categories = [
-      { id: 'projectName', label: 'Project',  icon: icons.folder },
-      { id: 'frontend',    label: labels.frontend,  icon: icons.frontend },
-      // Use a single-width glyph to keep sidebar alignment stable across terminals.
-      { id: 'language',    label: labels.language,  icon: '◦' },
-      { id: 'backend',     label: labels.backend,   icon: icons.backend  },
-      { id: 'database',    label: labels.database,  icon: icons.database },
+      { id: 'projectName', label: 'Project' },
+      { id: 'frontend',    label: labels.frontend },
+      { id: 'language',    label: labels.language },
+      { id: 'backend',     label: labels.backend },
+      { id: 'database',    label: labels.database },
     ];
 
     let content = '';
@@ -476,18 +476,16 @@ export function showSelectScreen(onComplete, onCancel, initialProjectName, initi
         (cat.id === 'backend'     && selections.backend)     ||
         (cat.id === 'database'    && selections.database);
 
-      let icon = cat.icon;
+      let icon = sharedRowIcon;
       let labelColor = RED_DIM;
       let iconColor  = RED_DIM;
 
       if (isCurrentStep) {
         iconColor  = RED_BRIGHT;
         labelColor = WHITE;
-        icon = icons.pointer;
       } else if (isDone) {
         iconColor  = RED_SOFT;
         labelColor = WHITE;
-        icon = icons.done;
       }
 
       const label = ellipsize(cat.label, SIDEBAR_WIDTH - 6);
