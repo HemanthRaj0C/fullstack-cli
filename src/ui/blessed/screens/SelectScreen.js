@@ -341,9 +341,8 @@ export function showSelectScreen(onComplete, onCancel, initialProjectName) {
       overwriteDialog.destroy();
       overwriteDialog = null;
     }
-    screen.unkey(['y', 'Y'], handleOverwriteConfirm);
+    screen.removeListener('keypress', handleOverwriteKeypress);
     screen.unkey(['enter'], handleOverwriteCancel);
-    screen.unkey(['n', 'N'], handleOverwriteCancel);
     screen.unkey(['escape'], handleOverwriteCancel);
     if (escapeKeySuspended) {
       screen.key(['escape'], handleEscape);
@@ -389,13 +388,32 @@ export function showSelectScreen(onComplete, onCancel, initialProjectName) {
         `{gray-fg}Enter = cancel{/gray-fg}`,
     });
 
-    screen.key(['y', 'Y'], handleOverwriteConfirm);
+    screen.on('keypress', handleOverwriteKeypress);
     screen.key(['enter'], handleOverwriteCancel);
-    screen.key(['n', 'N'], handleOverwriteCancel);
     screen.unkey(['escape'], handleEscape);
     escapeKeySuspended = true;
     screen.key(['escape'], handleOverwriteCancel);
     render();
+  }
+
+  function handleOverwriteKeypress(ch, key) {
+    if (!isActive || step !== 'projectName' || !pendingOverwrite) return;
+    if (!overwriteDialog) return;
+
+    const keyName = key?.name ?? '';
+    if (keyName === 'enter' || keyName === 'return') {
+      handleOverwriteCancel();
+      return;
+    }
+
+    const normalized = String(ch ?? '').toLowerCase();
+    if (normalized === 'y') {
+      handleOverwriteConfirm();
+      return;
+    }
+    if (normalized === 'n') {
+      handleOverwriteCancel();
+    }
   }
 
   function handleOverwriteConfirm() {
