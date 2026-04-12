@@ -71,6 +71,26 @@ create-fs-cli --help
 create-fs-cli --tui
 ```
 
+## Demo Video
+
+[![Demo video preview](recordings/tui.png)](recordings/demo_video.mp4)
+
+Direct link: [recordings/demo_video.mp4](recordings/demo_video.mp4)
+
+## Screenshots
+
+### TUI Mode
+
+![TUI mode](recordings/tui.png)
+
+### Classic Mode (Non-TUI)
+
+![Classic mode](recordings/non-tui.png)
+
+### Help Output
+
+![Help output](recordings/help.png)
+
 ## Help Commands
 
 ```bash
