@@ -2,6 +2,12 @@
 
 Production-ready CLI for scaffolding full-stack apps in either classic prompts or fullscreen TUI mode.
 
+## npm
+
+- Package page: [create-fs-cli on npm](https://www.npmjs.com/package/create-fs-cli)
+- Install globally: `npm install -g create-fs-cli`
+- Run without install: `npx create-fs-cli@latest`
+
 ## Requirements
 
 - Node.js 18+
