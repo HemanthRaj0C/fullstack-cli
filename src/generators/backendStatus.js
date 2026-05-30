@@ -61,7 +61,9 @@ async function injectNextJS(frontendPath, isTypeScript, isIntegrated) {
   );
 
   // Try to modify page file
-  const pageFile = await findFile(targetDir, `page.${ext}`);
+  // create-next-app uses .js/.ts (not .jsx/.tsx), so try both
+  const pageExts = isTypeScript ? ['page.tsx', 'page.ts'] : ['page.jsx', 'page.js'];
+  const pageFile = await findFirstFile(targetDir, pageExts);
   if (pageFile) {
     await modifyNextJSPage(pageFile);
   }
@@ -277,14 +279,31 @@ async function modifyNextJSPage(pageFile) {
     content = importStatement + content;
   }
 
-  // Try to add component after first opening tag in return
-  // Look for patterns like: return ( <main or return ( <div
-  const returnPattern = /(return\s*\(\s*<[a-zA-Z][^>]*>)/;
-  if (returnPattern.test(content)) {
+  // Try multiple strategies to inject <BackendStatus /> into the JSX
+  let injected = false;
+
+  // Strategy 1: Match return ( <tag...> with the tag potentially spanning multiple lines
+  // Uses [\s\S] to match across newlines inside the opening tag
+  const multiLineReturnPattern = /(return\s*\(\s*<[a-zA-Z][\w]*[\s\S]*?>)/;
+  if (!injected && multiLineReturnPattern.test(content)) {
     content = content.replace(
-      returnPattern,
+      multiLineReturnPattern,
       `$1\n      <BackendStatus />`
     );
+    injected = true;
+  }
+
+  // Strategy 2: Wrap the return body in a fragment and prepend BackendStatus
+  // Matches: return ( ... ) at the end of the function
+  if (!injected) {
+    const returnBlockPattern = /(return\s*\()([\s\S]*?)(\);?\s*})/;
+    if (returnBlockPattern.test(content)) {
+      content = content.replace(
+        returnBlockPattern,
+        `$1\n      <>\n      <BackendStatus />$2\n      </>$3`
+      );
+      injected = true;
+    }
   }
 
   await fs.writeFile(pageFile, content);
@@ -306,8 +325,10 @@ async function injectReactVite(frontendPath, isTypeScript, backendUrl) {
   );
 
   // Try to modify App file
+  // Vite uses .jsx/.tsx, but check both extensions for safety
   const srcDir = path.join(frontendPath, 'src');
-  const appFile = await findFile(srcDir, `App.${ext}`);
+  const appExts = isTypeScript ? ['App.tsx', 'App.ts'] : ['App.jsx', 'App.js'];
+  const appFile = await findFirstFile(srcDir, appExts);
   if (appFile) {
     await modifyReactApp(appFile);
   }
@@ -521,13 +542,29 @@ async function modifyReactApp(appFile) {
     content = importStatement + content;
   }
 
-  // Add component after first tag in return
-  const returnPattern = /(return\s*\(\s*<[a-zA-Z][^>]*>)/;
-  if (returnPattern.test(content)) {
+  // Try multiple strategies to inject <BackendStatus /> into the JSX
+  let injected = false;
+
+  // Strategy 1: Match return ( <tag...> with the tag potentially spanning multiple lines
+  const multiLineReturnPattern = /(return\s*\(\s*<[a-zA-Z][\w]*[\s\S]*?>)/;
+  if (!injected && multiLineReturnPattern.test(content)) {
     content = content.replace(
-      returnPattern,
+      multiLineReturnPattern,
       `$1\n      <BackendStatus />`
     );
+    injected = true;
+  }
+
+  // Strategy 2: Wrap the return body in a fragment and prepend BackendStatus
+  if (!injected) {
+    const returnBlockPattern = /(return\s*\()([\s\S]*?)(\);?\s*})/;
+    if (returnBlockPattern.test(content)) {
+      content = content.replace(
+        returnBlockPattern,
+        `$1\n      <>\n      <BackendStatus />$2\n      </>$3`
+      );
+      injected = true;
+    }
   }
 
   await fs.writeFile(appFile, content);
@@ -684,11 +721,13 @@ async function modifySveltePage(pageFile) {
 }
 
 // ============== HELPERS ==============
-async function findFile(dir, filename) {
+async function findFirstFile(dir, filenames) {
   try {
     const files = await fs.readdir(dir);
-    if (files.includes(filename)) {
-      return path.join(dir, filename);
+    for (const filename of filenames) {
+      if (files.includes(filename)) {
+        return path.join(dir, filename);
+      }
     }
     return null;
   } catch {
